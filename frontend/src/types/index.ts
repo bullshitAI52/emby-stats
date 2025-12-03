@@ -30,6 +30,7 @@ export interface HourlyData {
 export interface ShowItem {
   show_name: string
   poster_url?: string
+  backdrop_url?: string
   play_count: number
   duration_hours: number
   overview?: string
@@ -44,6 +45,7 @@ export interface ContentItem {
   name?: string
   show_name?: string
   poster_url?: string
+  backdrop_url?: string
   play_count: number
   duration_hours: number
   overview?: string
@@ -97,6 +99,7 @@ export interface RecentItem {
   name?: string
   show_name?: string
   poster_url?: string
+  backdrop_url?: string
   username: string
   time: string
   overview?: string
@@ -130,4 +133,22 @@ export interface PosterCardOptions {
   showUser?: boolean
   showTime?: boolean
   showEpisode?: boolean
+}
+
+// Filter Types
+export interface NameMappingItem {
+  original: string
+  display: string
+}
+
+export interface FilterOptionsData {
+  users: { id: string; name: string }[]
+  clients: NameMappingItem[]
+  devices: NameMappingItem[]
+  item_types: string[]
+  playback_methods: string[]
+  date_range: {
+    min: string | null
+    max: string | null
+  }
 }

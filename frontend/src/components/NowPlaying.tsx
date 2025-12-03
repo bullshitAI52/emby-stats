@@ -30,8 +30,8 @@ function NowPlayingCard({ item }: { item: import('@/types').NowPlayingItem }) {
           <p className="font-medium text-sm truncate" title={item.item_name}>
             {item.item_name}
           </p>
-          <p className="text-xs text-zinc-400 mt-1">{item.user_name}</p>
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-[var(--color-text-muted)] mt-1">{item.user_name}</p>
+          <p className="text-xs text-[var(--color-text-secondary)]">
             {item.device_name} · {item.client}
           </p>
         </div>
@@ -51,7 +51,7 @@ function NowPlayingCard({ item }: { item: import('@/types').NowPlayingItem }) {
               )}
               <span>{item.is_paused ? '已暂停' : '播放中'}</span>
             </div>
-            <span className="text-xs text-zinc-500">
+            <span className="text-xs text-[var(--color-text-secondary)]">
               {formatDuration(item.position_seconds)} / {formatDuration(item.runtime_seconds)}
             </span>
           </div>
@@ -78,7 +78,7 @@ export function NowPlaying() {
             <span className="relative inline-flex rounded-full h-3 w-3 bg-success" />
           </div>
           <h3 className="font-semibold">正在播放</h3>
-          <span className="text-xs text-zinc-500">{data.now_playing.length} 个会话</span>
+          <span className="text-xs text-[var(--color-text-secondary)]">{data.now_playing.length} 个会话</span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {data.now_playing.map((item, index) => (

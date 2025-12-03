@@ -2,13 +2,6 @@
 
 /* Custom theme configuration */
 @theme {
-  --color-background: #000000;
-  --color-foreground: #ECEDEE;
-  --color-content1: #18181b;
-  --color-content2: #27272a;
-  --color-content3: #3f3f46;
-  --color-content4: #52525b;
-
   --color-primary-50: #001731;
   --color-primary-100: #002e62;
   --color-primary-200: #004493;
@@ -27,6 +20,50 @@
   --color-secondary: #9353d3;
 
   --font-sans: 'Inter', system-ui, sans-serif;
+}
+
+/* Dark theme (default) */
+:root, .dark {
+  --color-background: #000000;
+  --color-foreground: #ECEDEE;
+  --color-content1: #18181b;
+  --color-content2: #27272a;
+  --color-content3: #3f3f46;
+  --color-content4: #52525b;
+  --color-border: rgba(255, 255, 255, 0.1);
+  --color-border-light: rgba(255, 255, 255, 0.05);
+  --color-text-muted: #a1a1aa;
+  --color-text-secondary: #71717a;
+  --color-hover-overlay: rgba(255, 255, 255, 0.05);
+  --color-card-gradient-end: #1a1a1f;
+  --color-card-hover: #1f1f23;
+  --color-scrollbar-track: #18181b;
+  --color-scrollbar-thumb: #3f3f46;
+  --color-scrollbar-thumb-hover: #52525b;
+  --color-header-bg: rgba(0, 0, 0, 0.8);
+  --color-nav-bg: rgba(24, 24, 27, 0.7);
+}
+
+/* Light theme */
+.light {
+  --color-background: #eef1f5;
+  --color-foreground: #1a1a1a;
+  --color-content1: #ffffff;
+  --color-content2: #f8f9fa;
+  --color-content3: #f0f2f5;
+  --color-content4: #e4e6eb;
+  --color-border: #b8b8b8;
+  --color-border-light: #c8c8c8;
+  --color-text-muted: #4a4a4a;
+  --color-text-secondary: #65676b;
+  --color-hover-overlay: rgba(0, 0, 0, 0.04);
+  --color-card-gradient-end: #ffffff;
+  --color-card-hover: #f8f9fa;
+  --color-scrollbar-track: #e4e6eb;
+  --color-scrollbar-thumb: #bcc0c4;
+  --color-scrollbar-thumb-hover: #8a8d91;
+  --color-header-bg: rgba(255, 255, 255, 0.9);
+  --color-nav-bg: rgba(255, 255, 255, 0.95);
 }
 
 /* Base styles */
@@ -66,17 +103,17 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #18181b;
+  background: var(--color-scrollbar-track);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #3f3f46;
+  background: var(--color-scrollbar-thumb);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #52525b;
+  background: var(--color-scrollbar-thumb-hover);
 }
 
 /* Animation utilities */

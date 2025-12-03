@@ -2,15 +2,16 @@ import { Card } from '@/components/ui'
 import { PieChart } from '@/components/charts'
 import { useClients, usePlaybackMethods, useDevices } from '@/hooks/useStats'
 import { Monitor } from 'lucide-react'
+import type { FilterParams } from '@/services/api'
 
 interface DevicesProps {
-  days: number
+  filterParams: FilterParams
 }
 
-export function Devices({ days }: DevicesProps) {
-  const { data: clientsData } = useClients(days)
-  const { data: methodsData } = usePlaybackMethods(days)
-  const { data: devicesData } = useDevices(days)
+export function Devices({ filterParams }: DevicesProps) {
+  const { data: clientsData } = useClients(filterParams)
+  const { data: methodsData } = usePlaybackMethods(filterParams)
+  const { data: devicesData } = useDevices(filterParams)
 
   const clientsChartData = clientsData?.clients.map((c) => ({
     name: c.client,
@@ -55,10 +56,10 @@ export function Devices({ days }: DevicesProps) {
                   </div>
                   <div>
                     <p className="text-sm">{device.device}</p>
-                    <p className="text-xs text-zinc-500">{device.client}</p>
+                    <p className="text-xs text-[var(--color-text-secondary)]">{device.client}</p>
                   </div>
                 </div>
-                <span className="text-xs text-zinc-400">{device.play_count}次</span>
+                <span className="text-xs text-[var(--color-text-muted)]">{device.play_count}次</span>
               </div>
             ))}
           </div>

@@ -20,7 +20,7 @@ export function Skeleton({ className, style }: SkeletonProps) {
 
 export function StatCardSkeleton() {
   return (
-    <div className="relative overflow-hidden rounded-[14px] border border-white/5 bg-gradient-to-br from-content1 to-[#1a1a1f] p-5 flex flex-col">
+    <div className="relative overflow-hidden rounded-[14px] border border-[var(--color-border-light)] bg-gradient-to-br from-content1 to-[var(--color-card-gradient-end)] p-5 flex flex-col">
       <div className="flex items-center gap-3 mb-3">
         <Skeleton className="w-9 h-9 rounded-[10px]" />
         <Skeleton className="h-4 w-16" />

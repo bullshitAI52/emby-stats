@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { cn } from '@/lib/utils'
 import { Film } from 'lucide-react'
 import { formatDateTime } from '@/lib/utils'
 import { PosterModal, type PosterModalData } from './PosterModal'
@@ -7,6 +6,7 @@ import { PosterModal, type PosterModalData } from './PosterModal'
 interface PosterCardProps {
   title: string
   posterUrl?: string
+  backdropUrl?: string
   itemName?: string
   rank?: number
   playCount?: number
@@ -14,13 +14,13 @@ interface PosterCardProps {
   username?: string
   time?: string
   showEpisode?: boolean
-  className?: string
   overview?: string
 }
 
 export function PosterCard({
   title,
   posterUrl,
+  backdropUrl,
   itemName,
   rank,
   playCount,
@@ -28,16 +28,15 @@ export function PosterCard({
   username,
   time,
   showEpisode,
-  className,
   overview,
 }: PosterCardProps) {
   const [imageError, setImageError] = useState(false)
   const [imageLoaded, setImageLoaded] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
 
-  // Parse episode info
+  // 解析剧集信息 S01E02 格式
   let episodeInfo = ''
-  if (showEpisode && itemName && itemName.includes(' - ')) {
+  if (showEpisode && itemName?.includes(' - ')) {
     const parts = itemName.split(' - ')
     if (parts.length >= 2) {
       const match = parts[1].match(/s(\d+)e(\d+)/i)
@@ -52,6 +51,7 @@ export function PosterCard({
   const modalData: PosterModalData = {
     title: displayTitle,
     posterUrl,
+    backdropUrl,
     itemName,
     playCount,
     durationHours,
@@ -64,69 +64,62 @@ export function PosterCard({
   return (
     <>
       <div
-        className={cn(
-          'relative rounded-xl overflow-hidden bg-content1 aspect-[2/3] transition-all duration-300 cursor-pointer',
-          'hover:scale-[1.03] hover:shadow-[0_20px_50px_-12px_rgba(0,111,238,0.25)]',
-          className
-        )}
-        title={itemName || title}
+        className="relative rounded-xl overflow-hidden bg-zinc-800 aspect-[2/3] cursor-pointer transition-transform duration-200 hover:scale-105"
         onClick={() => setModalOpen(true)}
       >
-        {/* Poster image or placeholder */}
-        {posterUrl && !imageError ? (
+        {/* 海报图片 */}
+        {posterUrl && !imageError && (
           <img
             src={posterUrl}
             alt={title}
             loading="lazy"
-            className={cn(
-              'w-full h-full object-cover transition-opacity duration-300',
+            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
               imageLoaded ? 'opacity-100' : 'opacity-0'
-            )}
+            }`}
             onLoad={() => setImageLoaded(true)}
             onError={() => setImageError(true)}
           />
-        ) : null}
+        )}
 
-        {/* Placeholder */}
+        {/* 占位图 */}
         {(!posterUrl || imageError || !imageLoaded) && (
-          <div
-            className={cn(
-              'absolute inset-0 flex items-center justify-center bg-gradient-to-br from-content2 to-content1',
-              posterUrl && !imageError && !imageLoaded && 'z-0'
-            )}
-          >
-            <Film className="w-[30%] h-[30%] opacity-20" />
+          <div className="absolute inset-0 flex items-center justify-center bg-zinc-800">
+            <Film className="w-8 h-8 text-zinc-600" />
           </div>
         )}
 
-        {/* Rank badge */}
+        {/* 排名角标 */}
         {rank && (
-          <div className="absolute top-2 left-2 w-[26px] h-[26px] bg-gradient-to-br from-warning to-danger rounded-lg flex items-center justify-center text-xs font-bold">
+          <div className="absolute top-2 left-2 w-6 h-6 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg flex items-center justify-center text-xs font-bold text-white">
             {rank}
           </div>
         )}
 
-        {/* Play count badge */}
-        {playCount && (
-          <div className="absolute top-2 right-2 bg-primary text-white px-2 py-0.5 rounded-md text-[11px] font-semibold">
+        {/* 播放次数角标 */}
+        {playCount !== undefined && playCount > 0 && (
+          <div className="absolute top-2 right-2 bg-blue-500 text-white px-1.5 py-0.5 rounded text-[10px] font-semibold">
             {playCount}次
           </div>
         )}
 
-        {/* Overlay */}
-        <div className="absolute bottom-0 left-0 right-0 p-2.5 pt-10 bg-gradient-to-t from-black/95 via-black/70 to-transparent">
-          <p className="text-xs font-semibold leading-tight line-clamp-2">{displayTitle}</p>
+        {/* 底部信息栏 */}
+        <div className="absolute bottom-0 left-0 right-0 p-2 pt-8 bg-gradient-to-t from-black/90 to-transparent">
+          <p className="text-xs font-medium text-white line-clamp-2 leading-tight">
+            {displayTitle}
+          </p>
           {username && (
-            <p className="text-[10px] text-zinc-400 mt-1 truncate">{username}</p>
+            <p className="text-[10px] text-zinc-300 mt-0.5 truncate">{username}</p>
           )}
           {time && (
-            <p className="text-[10px] text-zinc-500">{formatDateTime(time)}</p>
+            <p className="text-[10px] text-zinc-400">{formatDateTime(time)}</p>
           )}
         </div>
       </div>
 
-      {/* Modal */}
-      <PosterModal data={modalOpen ? modalData : null} onClose={() => setModalOpen(false)} />
+      {/* 弹窗 */}
+      {modalOpen && (
+        <PosterModal data={modalData} onClose={() => setModalOpen(false)} />
+      )}
     </>
   )
 }

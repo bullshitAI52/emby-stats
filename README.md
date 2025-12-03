@@ -27,6 +27,7 @@
 | **用户统计** | 各用户的播放时长、次数和最后活动时间 |
 | **设备统计** | 播放设备和客户端分布情况 |
 | **播放历史** | 最近播放记录查询，支持海报展示 |
+| **名称映射** | 自定义客户端/设备的显示名称，简化长名称 |
 | **PWA 支持** | 可添加到手机主屏幕作为独立应用 |
 | **管理员认证** | 使用 Emby 管理员账号登录，保护数据安全 |
 
@@ -111,6 +112,7 @@ docker run -d \
 | `EMBY_API_KEY` | ❌ | - | Emby API Key，不填则自动从数据库获取 |
 | `TZ` | ❌ | `UTC` | 时区设置，如 `Asia/Shanghai` |
 | `MIN_PLAY_SECONDS` | ❌ | `60` | 最小播放秒数，低于此值不计入播放次数统计 |
+| `NAME_MAPPINGS_FILE` | ❌ | `/config/name_mappings.json` | 名称映射配置文件路径 |
 
 ### 数据目录结构
 
@@ -135,6 +137,43 @@ docker run -d \
 2. 搜索 "Playback Reporting" 并安装
 3. 重启 Emby 服务器
 4. 等待产生播放记录后即可在统计面板查看
+
+### 名称映射配置
+
+有些播放客户端或设备的名称特别长（如 `Samsung UE55TU8000 Series (55)`），显示不方便。
+
+**v1.3 新增：** 现在可以直接在 Web 界面中配置名称映射！
+
+1. 登录后点击右上角的 ⚙️ **设置按钮**
+2. 在弹出面板中切换「客户端」或「设备」标签
+3. 点击底部的长名称快速添加，或手动输入映射
+4. 点击「保存配置」，刷新页面后生效
+
+配置会自动保存到 `/config/name_mappings.json`，容器重启后不会丢失。
+
+**手动配置（可选）：**
+
+也可以手动创建 `name_mappings.json` 配置文件：
+
+```json
+{
+  "clients": {
+    "Emby Web": "Web",
+    "Emby for Android": "Android",
+    "Emby for iOS": "iOS"
+  },
+  "devices": {
+    "Samsung UE55TU8000 Series (55)": "Samsung TV",
+    "iPhone 15 Pro Max": "iPhone",
+    "Mozilla Firefox Windows": "Firefox"
+  }
+}
+```
+
+**说明：**
+- 左边是原始名称（必须完全匹配），右边是你想显示的名称
+- 未配置映射的名称会保持原样显示
+- 多个原始名称可以映射到同一个显示名称，统计时会自动合并
 
 ---
 

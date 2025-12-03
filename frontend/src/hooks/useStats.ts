@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { api } from '@/services/api'
+import { api, type FilterParams } from '@/services/api'
 import type {
   OverviewData,
   TrendData,
@@ -14,15 +14,21 @@ import type {
   NowPlayingData,
 } from '@/types'
 
-export function useOverview(days: number) {
+// 序列化筛选参数用于依赖比较
+function serializeParams(params: FilterParams): string {
+  return JSON.stringify(params)
+}
+
+export function useOverview(params: FilterParams) {
   const [data, setData] = useState<OverviewData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
+  const paramsKey = serializeParams(params)
 
   const fetch = useCallback(async () => {
     setLoading(true)
     try {
-      const result = await api.getOverview(days)
+      const result = await api.getOverview(params)
       setData(result)
       setError(null)
     } catch (e) {
@@ -30,7 +36,8 @@ export function useOverview(days: number) {
     } finally {
       setLoading(false)
     }
-  }, [days])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paramsKey])
 
   useEffect(() => {
     fetch()
@@ -39,15 +46,16 @@ export function useOverview(days: number) {
   return { data, loading, error, refetch: fetch }
 }
 
-export function useTrend(days: number) {
+export function useTrend(params: FilterParams) {
   const [data, setData] = useState<TrendData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
+  const paramsKey = serializeParams(params)
 
   const fetch = useCallback(async () => {
     setLoading(true)
     try {
-      const result = await api.getTrend(days)
+      const result = await api.getTrend(params)
       setData(result)
       setError(null)
     } catch (e) {
@@ -55,7 +63,8 @@ export function useTrend(days: number) {
     } finally {
       setLoading(false)
     }
-  }, [days])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paramsKey])
 
   useEffect(() => {
     fetch()
@@ -64,15 +73,16 @@ export function useTrend(days: number) {
   return { data, loading, error, refetch: fetch }
 }
 
-export function useHourly(days: number) {
+export function useHourly(params: FilterParams) {
   const [data, setData] = useState<HourlyData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
+  const paramsKey = serializeParams(params)
 
   const fetch = useCallback(async () => {
     setLoading(true)
     try {
-      const result = await api.getHourly(days)
+      const result = await api.getHourly(params)
       setData(result)
       setError(null)
     } catch (e) {
@@ -80,7 +90,8 @@ export function useHourly(days: number) {
     } finally {
       setLoading(false)
     }
-  }, [days])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paramsKey])
 
   useEffect(() => {
     fetch()
@@ -89,15 +100,16 @@ export function useHourly(days: number) {
   return { data, loading, error, refetch: fetch }
 }
 
-export function useTopShows(days: number, limit = 16) {
+export function useTopShows(params: FilterParams, limit = 16) {
   const [data, setData] = useState<TopShowsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
+  const paramsKey = serializeParams(params)
 
   const fetch = useCallback(async () => {
     setLoading(true)
     try {
-      const result = await api.getTopShows(days, limit)
+      const result = await api.getTopShows(params, limit)
       setData(result)
       setError(null)
     } catch (e) {
@@ -105,7 +117,8 @@ export function useTopShows(days: number, limit = 16) {
     } finally {
       setLoading(false)
     }
-  }, [days, limit])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paramsKey, limit])
 
   useEffect(() => {
     fetch()
@@ -114,15 +127,16 @@ export function useTopShows(days: number, limit = 16) {
   return { data, loading, error, refetch: fetch }
 }
 
-export function useTopContent(days: number, limit = 18) {
+export function useTopContent(params: FilterParams, limit = 18) {
   const [data, setData] = useState<TopContentData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
+  const paramsKey = serializeParams(params)
 
   const fetch = useCallback(async () => {
     setLoading(true)
     try {
-      const result = await api.getTopContent(days, limit)
+      const result = await api.getTopContent(params, limit)
       setData(result)
       setError(null)
     } catch (e) {
@@ -130,7 +144,8 @@ export function useTopContent(days: number, limit = 18) {
     } finally {
       setLoading(false)
     }
-  }, [days, limit])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paramsKey, limit])
 
   useEffect(() => {
     fetch()
@@ -139,15 +154,16 @@ export function useTopContent(days: number, limit = 18) {
   return { data, loading, error, refetch: fetch }
 }
 
-export function useUsers(days: number) {
+export function useUsers(params: FilterParams) {
   const [data, setData] = useState<UsersData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
+  const paramsKey = serializeParams(params)
 
   const fetch = useCallback(async () => {
     setLoading(true)
     try {
-      const result = await api.getUsers(days)
+      const result = await api.getUsers(params)
       setData(result)
       setError(null)
     } catch (e) {
@@ -155,7 +171,8 @@ export function useUsers(days: number) {
     } finally {
       setLoading(false)
     }
-  }, [days])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paramsKey])
 
   useEffect(() => {
     fetch()
@@ -164,15 +181,16 @@ export function useUsers(days: number) {
   return { data, loading, error, refetch: fetch }
 }
 
-export function useClients(days: number) {
+export function useClients(params: FilterParams) {
   const [data, setData] = useState<ClientsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
+  const paramsKey = serializeParams(params)
 
   const fetch = useCallback(async () => {
     setLoading(true)
     try {
-      const result = await api.getClients(days)
+      const result = await api.getClients(params)
       setData(result)
       setError(null)
     } catch (e) {
@@ -180,7 +198,8 @@ export function useClients(days: number) {
     } finally {
       setLoading(false)
     }
-  }, [days])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paramsKey])
 
   useEffect(() => {
     fetch()
@@ -189,15 +208,16 @@ export function useClients(days: number) {
   return { data, loading, error, refetch: fetch }
 }
 
-export function usePlaybackMethods(days: number) {
+export function usePlaybackMethods(params: FilterParams) {
   const [data, setData] = useState<PlaybackMethodsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
+  const paramsKey = serializeParams(params)
 
   const fetch = useCallback(async () => {
     setLoading(true)
     try {
-      const result = await api.getPlaybackMethods(days)
+      const result = await api.getPlaybackMethods(params)
       setData(result)
       setError(null)
     } catch (e) {
@@ -205,7 +225,8 @@ export function usePlaybackMethods(days: number) {
     } finally {
       setLoading(false)
     }
-  }, [days])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paramsKey])
 
   useEffect(() => {
     fetch()
@@ -214,15 +235,16 @@ export function usePlaybackMethods(days: number) {
   return { data, loading, error, refetch: fetch }
 }
 
-export function useDevices(days: number) {
+export function useDevices(params: FilterParams) {
   const [data, setData] = useState<DevicesData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
+  const paramsKey = serializeParams(params)
 
   const fetch = useCallback(async () => {
     setLoading(true)
     try {
-      const result = await api.getDevices(days)
+      const result = await api.getDevices(params)
       setData(result)
       setError(null)
     } catch (e) {
@@ -230,7 +252,8 @@ export function useDevices(days: number) {
     } finally {
       setLoading(false)
     }
-  }, [days])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paramsKey])
 
   useEffect(() => {
     fetch()

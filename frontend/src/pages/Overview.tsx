@@ -3,15 +3,16 @@ import { TrendChart, HeatmapChart } from '@/components/charts'
 import { useOverview, useTrend, useHourly } from '@/hooks/useStats'
 import { formatNumber } from '@/lib/utils'
 import { PlayCircle, Clock, Users, Film } from 'lucide-react'
+import type { FilterParams } from '@/services/api'
 
 interface OverviewProps {
-  days: number
+  filterParams: FilterParams
 }
 
-export function Overview({ days }: OverviewProps) {
-  const { data: overview, loading: overviewLoading } = useOverview(days)
-  const { data: trend, loading: trendLoading } = useTrend(days)
-  const { data: hourly, loading: hourlyLoading } = useHourly(days)
+export function Overview({ filterParams }: OverviewProps) {
+  const { data: overview, loading: overviewLoading } = useOverview(filterParams)
+  const { data: trend, loading: trendLoading } = useTrend(filterParams)
+  const { data: hourly, loading: hourlyLoading } = useHourly(filterParams)
 
   return (
     <div>

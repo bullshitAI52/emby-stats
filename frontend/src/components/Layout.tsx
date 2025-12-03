@@ -1,11 +1,15 @@
 import { useState, type ReactNode } from 'react'
 import { Chip } from '@/components/ui'
-import { Play, LayoutDashboard, Flame, Users, Monitor, History, LogOut } from 'lucide-react'
+import { Play, LayoutDashboard, Flame, Users, Monitor, History, LogOut, Sun, Moon, Filter, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
+import { useTheme } from '@/contexts/ThemeContext'
+import { useFilter } from '@/contexts/FilterContext'
+import { FilterPanel } from '@/components/FilterPanel'
+import { NameMappingPanel } from '@/components/NameMappingPanel'
 
 interface LayoutProps {
-  children: (props: { days: number; activeTab: string; refreshKey: number }) => ReactNode
+  children: (props: { activeTab: string; refreshKey: number }) => ReactNode
 }
 const TABS = [
   { id: 'overview', label: '概览', icon: LayoutDashboard },
@@ -24,14 +28,17 @@ const TIME_RANGES = [
 
 export function Layout({ children }: LayoutProps) {
   const { username, logout } = useAuth()
-  const [days, setDays] = useState(7)
+  const { theme, toggleTheme } = useTheme()
+  const { filters, options, setDays, hasActiveFilters, activeFilterCount } = useFilter()
   const [activeTab, setActiveTab] = useState('overview')
   const [refreshKey] = useState(0)
+  const [filterPanelOpen, setFilterPanelOpen] = useState(false)
+  const [settingsPanelOpen, setSettingsPanelOpen] = useState(false)
 
   return (
     <div className="min-h-screen pb-24">
       {/* Header */}
-      <header className="sticky top-0 z-50 backdrop-blur-xl bg-black/80 border-b border-white/5">
+      <header className="sticky top-0 z-50 backdrop-blur-xl bg-[var(--color-header-bg)] border-b border-[var(--color-border-light)]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 flex-shrink-0">
@@ -47,17 +54,49 @@ export function Layout({ children }: LayoutProps) {
               {TIME_RANGES.map((range) => (
                 <Chip
                   key={range.days}
-                  active={days === range.days}
+                  active={!filters.useDateRange && filters.days === range.days}
                   onClick={() => setDays(range.days)}
                 >
                   {range.label}
                 </Chip>
               ))}
-              <div className="ml-2 pl-2 border-l border-white/10 flex items-center gap-2">
-                <span className="text-xs text-zinc-400 hidden sm:inline">{username}</span>
+              {/* 筛选按钮 */}
+              <button
+                onClick={() => setFilterPanelOpen(true)}
+                className={cn(
+                  'relative p-2 rounded-lg transition-colors',
+                  hasActiveFilters
+                    ? 'text-primary bg-primary/10 hover:bg-primary/20'
+                    : 'text-[var(--color-text-muted)] hover:text-foreground hover:bg-[var(--color-hover-overlay)]'
+                )}
+                title="筛选"
+              >
+                <Filter className="w-4 h-4" />
+                {activeFilterCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 text-[10px] bg-primary text-white rounded-full flex items-center justify-center">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </button>
+              <div className="ml-2 pl-2 border-l border-[var(--color-border)] flex items-center gap-2">
+                <span className="text-xs text-[var(--color-text-muted)] hidden sm:inline">{username}</span>
+                <button
+                  onClick={() => setSettingsPanelOpen(true)}
+                  className="p-2 rounded-lg text-[var(--color-text-muted)] hover:text-foreground hover:bg-[var(--color-hover-overlay)] transition-colors"
+                  title="设置"
+                >
+                  <Settings className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={toggleTheme}
+                  className="p-2 rounded-lg text-[var(--color-text-muted)] hover:text-foreground hover:bg-[var(--color-hover-overlay)] transition-colors"
+                  title={theme === 'dark' ? '切换到浅色模式' : '切换到深色模式'}
+                >
+                  {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                </button>
                 <button
                   onClick={logout}
-                  className="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
+                  className="p-2 rounded-lg text-[var(--color-text-muted)] hover:text-foreground hover:bg-[var(--color-hover-overlay)] transition-colors"
                   title="登出"
                 >
                   <LogOut className="w-4 h-4" />
@@ -70,12 +109,23 @@ export function Layout({ children }: LayoutProps) {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-        {children({ days, activeTab, refreshKey })}
+        {children({ activeTab, refreshKey })}
       </main>
+
+      {/* Filter Panel */}
+      <FilterPanel isOpen={filterPanelOpen} onClose={() => setFilterPanelOpen(false)} />
+
+      {/* Name Mapping Settings Panel */}
+      <NameMappingPanel
+        isOpen={settingsPanelOpen}
+        onClose={() => setSettingsPanelOpen(false)}
+        availableClients={options?.clients || []}
+        availableDevices={options?.devices || []}
+      />
 
       {/* Bottom Tab Navigation - Floating */}
       <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
-        <div className="flex items-center gap-1 px-2 py-2 bg-content1/70 backdrop-blur-2xl rounded-2xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+        <div className="flex items-center gap-1 px-2 py-2 bg-[var(--color-nav-bg)] backdrop-blur-2xl rounded-2xl border border-[var(--color-border)] shadow-[0_8px_32px_rgba(0,0,0,0.2)]">
           {TABS.map((tab) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.id
@@ -87,7 +137,7 @@ export function Layout({ children }: LayoutProps) {
                   'flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all duration-200',
                   isActive
                     ? 'bg-primary/20 text-primary'
-                    : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'
+                    : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-muted)] hover:bg-[var(--color-hover-overlay)]'
                 )}
               >
                 <Icon className={cn('w-5 h-5 transition-transform', isActive && 'scale-110')} />

@@ -41,18 +41,18 @@ export function Login() {
             <BarChart3 className="w-8 h-8 text-primary" />
           </div>
           <h1 className="text-2xl font-bold">Emby Stats</h1>
-          <p className="text-zinc-400 mt-2">使用 Emby 管理员账号登录</p>
+          <p className="text-[var(--color-text-muted)] mt-2">使用 Emby 管理员账号登录</p>
         </div>
 
         {/* Login Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm text-zinc-400 mb-2">用户名</label>
+            <label className="block text-sm text-[var(--color-text-muted)] mb-2">用户名</label>
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl bg-content1 border border-white/10 focus:border-primary focus:outline-none transition-colors"
+              className="w-full px-4 py-3 rounded-xl bg-content1 border border-[var(--color-border)] focus:border-primary focus:outline-none transition-colors"
               placeholder="Emby 用户名"
               autoComplete="username"
               required
@@ -60,12 +60,12 @@ export function Login() {
           </div>
 
           <div>
-            <label className="block text-sm text-zinc-400 mb-2">密码</label>
+            <label className="block text-sm text-[var(--color-text-muted)] mb-2">密码</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl bg-content1 border border-white/10 focus:border-primary focus:outline-none transition-colors"
+              className="w-full px-4 py-3 rounded-xl bg-content1 border border-[var(--color-border)] focus:border-primary focus:outline-none transition-colors"
               placeholder="密码"
               autoComplete="current-password"
               required

@@ -3,6 +3,7 @@ import { NowPlaying } from '@/components/NowPlaying'
 import { Overview, Content, Users, Devices, History, Login } from '@/pages'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useAuth } from '@/contexts/AuthContext'
+import { useFilter } from '@/contexts/FilterContext'
 import { Loader2 } from 'lucide-react'
 
 const pageVariants = {
@@ -20,6 +21,7 @@ const pageTransition = {
 
 function App() {
   const { isAuthenticated, isLoading } = useAuth()
+  const { buildQueryParams } = useFilter()
 
   // 加载中显示
   if (isLoading) {
@@ -35,9 +37,11 @@ function App() {
     return <Login />
   }
 
+  const filterParams = buildQueryParams()
+
   return (
     <Layout>
-      {({ days, activeTab, refreshKey }) => (
+      {({ activeTab, refreshKey }) => (
         <>
           {/* Now Playing - shown on all tabs */}
           <NowPlaying />
@@ -52,10 +56,10 @@ function App() {
               exit="exit"
               transition={pageTransition}
             >
-              {activeTab === 'overview' && <Overview days={days} />}
-              {activeTab === 'content' && <Content days={days} />}
-              {activeTab === 'users' && <Users days={days} />}
-              {activeTab === 'devices' && <Devices days={days} />}
+              {activeTab === 'overview' && <Overview filterParams={filterParams} />}
+              {activeTab === 'content' && <Content filterParams={filterParams} />}
+              {activeTab === 'users' && <Users filterParams={filterParams} />}
+              {activeTab === 'devices' && <Devices filterParams={filterParams} />}
               {activeTab === 'history' && <History />}
             </motion.div>
           </AnimatePresence>

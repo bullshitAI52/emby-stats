@@ -75,7 +75,7 @@ class EmbyService:
                     f"{settings.EMBY_URL}/emby/Users/{user_id}/Items/{item_id}",
                     params={
                         "api_key": api_key,
-                        "Fields": "SeriesInfo,ImageTags,SeriesPrimaryImageTag,PrimaryImageAspectRatio,Overview"
+                        "Fields": "SeriesInfo,ImageTags,SeriesPrimaryImageTag,PrimaryImageAspectRatio,Overview,BackdropImageTags"
                     },
                     timeout=10
                 )
@@ -117,6 +117,31 @@ class EmbyService:
 
         return b"", "image/jpeg"
 
+    async def get_backdrop(self, item_id: str, max_height: int = 720, max_width: int = 1280) -> tuple[bytes, str]:
+        """获取背景图(横版)，返回 (图片数据, content_type)"""
+        try:
+            api_key = await self.get_api_key()
+            if not api_key:
+                return b"", "image/jpeg"
+
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(
+                    f"{settings.EMBY_URL}/emby/Items/{item_id}/Images/Backdrop",
+                    params={
+                        "api_key": api_key,
+                        "maxHeight": max_height,
+                        "maxWidth": max_width,
+                        "quality": 90
+                    },
+                    timeout=15
+                )
+                if resp.status_code == 200:
+                    return resp.content, resp.headers.get("content-type", "image/jpeg")
+        except Exception as e:
+            print(f"Error fetching backdrop for {item_id}: {e}")
+
+        return b"", "image/jpeg"
+
     def get_poster_url(self, item_id: str, item_type: str, item_info: dict) -> str | None:
         """根据媒体信息获取海报 URL"""
         if not item_info:
@@ -127,6 +152,20 @@ class EmbyService:
             return f"/api/poster/{item_info['SeriesId']}"
         elif item_info.get("ImageTags", {}).get("Primary"):
             return f"/api/poster/{item_id}"
+
+        return None
+
+    def get_backdrop_url(self, item_id: str, item_type: str, item_info: dict) -> str | None:
+        """根据媒体信息获取背景图(横版) URL"""
+        if not item_info:
+            return None
+
+        # 对于剧集，使用剧集背景图
+        if item_type == "Episode" and item_info.get("SeriesId"):
+            return f"/api/backdrop/{item_info['SeriesId']}"
+        # 检查是否有 Backdrop 图片
+        elif item_info.get("BackdropImageTags") and len(item_info.get("BackdropImageTags", [])) > 0:
+            return f"/api/backdrop/{item_id}"
 
         return None
 

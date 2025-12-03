@@ -6,7 +6,7 @@ from fastapi import APIRouter, Query
 from fastapi.responses import StreamingResponse
 from datetime import datetime, timedelta
 from collections import defaultdict
-from typing import Optional
+from typing import Optional, List
 
 from database import get_playback_db, get_count_expr, local_date
 from services.emby import emby_service
@@ -14,19 +14,97 @@ from services.emby import emby_service
 router = APIRouter(prefix="/api", tags=["media"])
 
 
+def build_filter_conditions(
+    days: Optional[int] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    users: Optional[List[str]] = None,
+    clients: Optional[List[str]] = None,
+    devices: Optional[List[str]] = None,
+    item_types: Optional[List[str]] = None,
+    playback_methods: Optional[List[str]] = None,
+) -> tuple[str, list]:
+    """构建通用的筛选条件"""
+    conditions = []
+    params = []
+    date_col = local_date("DateCreated")
+
+    if start_date and end_date:
+        conditions.append(f"{date_col} >= date(?) AND {date_col} <= date(?)")
+        params.extend([start_date, end_date])
+    elif start_date:
+        conditions.append(f"{date_col} >= date(?)")
+        params.append(start_date)
+    elif end_date:
+        conditions.append(f"{date_col} <= date(?)")
+        params.append(end_date)
+    elif days:
+        since_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+        conditions.append(f"{date_col} >= date(?)")
+        params.append(since_date)
+
+    if users and len(users) > 0:
+        placeholders = ",".join(["?" for _ in users])
+        conditions.append(f"UserId IN ({placeholders})")
+        params.extend(users)
+
+    if clients and len(clients) > 0:
+        placeholders = ",".join(["?" for _ in clients])
+        conditions.append(f"ClientName IN ({placeholders})")
+        params.extend(clients)
+
+    if devices and len(devices) > 0:
+        placeholders = ",".join(["?" for _ in devices])
+        conditions.append(f"DeviceName IN ({placeholders})")
+        params.extend(devices)
+
+    if item_types and len(item_types) > 0:
+        placeholders = ",".join(["?" for _ in item_types])
+        conditions.append(f"ItemType IN ({placeholders})")
+        params.extend(item_types)
+
+    if playback_methods and len(playback_methods) > 0:
+        placeholders = ",".join(["?" for _ in playback_methods])
+        conditions.append(f"PlaybackMethod IN ({placeholders})")
+        params.extend(playback_methods)
+
+    where_clause = " AND ".join(conditions) if conditions else "1=1"
+    return where_clause, params
+
+
 @router.get("/top-content")
 async def get_top_content(
     days: int = Query(default=30, ge=1, le=365),
     limit: int = Query(default=10, ge=1, le=50),
-    item_type: Optional[str] = Query(default=None)
+    item_type: Optional[str] = Query(default=None),
+    start_date: Optional[str] = Query(default=None),
+    end_date: Optional[str] = Query(default=None),
+    users: Optional[str] = Query(default=None),
+    clients: Optional[str] = Query(default=None),
+    devices: Optional[str] = Query(default=None),
+    playback_methods: Optional[str] = Query(default=None),
 ):
     """获取热门内容排行（剧集按剧名聚合，电影等按ItemId）"""
-    since_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+    user_list = [u.strip() for u in users.split(",")] if users else None
+    client_list = [c.strip() for c in clients.split(",")] if clients else None
+    device_list = [d.strip() for d in devices.split(",")] if devices else None
+    method_list = [m.strip() for m in playback_methods.split(",")] if playback_methods else None
+    type_list = [item_type] if item_type else None
+
+    where_clause, params = build_filter_conditions(
+        days=days if not (start_date or end_date) else None,
+        start_date=start_date,
+        end_date=end_date,
+        users=user_list,
+        clients=client_list,
+        devices=device_list,
+        item_types=type_list,
+        playback_methods=method_list,
+    )
+
     count_expr = get_count_expr()
-    date_col = local_date("DateCreated")
 
     async with get_playback_db() as db:
-        # 先查询所有符合条件的播放记录
         query = f"""
             SELECT
                 ItemId,
@@ -35,15 +113,9 @@ async def get_top_content(
                 {count_expr} as play_count,
                 COALESCE(SUM(PlayDuration), 0) as total_duration
             FROM PlaybackActivity
-            WHERE {date_col} >= date(?)
+            WHERE {where_clause}
+            GROUP BY ItemId
         """
-        params = [since_date]
-
-        if item_type:
-            query += " AND ItemType = ?"
-            params.append(item_type)
-
-        query += " GROUP BY ItemId"
 
         async with db.execute(query, params) as cursor:
             # 按剧名/内容聚合
@@ -92,6 +164,7 @@ async def get_top_content(
             # 获取海报 URL 和剧集介绍
             item_info = await emby_service.get_item_info(str(item_id))
             poster_url = emby_service.get_poster_url(str(item_id), item_type_val, item_info)
+            backdrop_url = emby_service.get_backdrop_url(str(item_id), item_type_val, item_info)
 
             # 获取 overview（剧集介绍）
             overview = item_info.get("Overview", "") if item_info else ""
@@ -102,6 +175,9 @@ async def get_top_content(
                     series_info = await emby_service.get_item_info(series_id)
                     if series_info:
                         overview = series_info.get("Overview", overview)
+                        # 也尝试从剧集获取 backdrop
+                        if not backdrop_url and series_info.get("BackdropImageTags"):
+                            backdrop_url = f"/api/backdrop/{series_id}"
 
             data.append({
                 "item_id": item_id,
@@ -111,6 +187,7 @@ async def get_top_content(
                 "play_count": info["play_count"],
                 "duration_hours": round(info["duration"] / 3600, 2),
                 "poster_url": poster_url,
+                "backdrop_url": backdrop_url,
                 "overview": overview
             })
 
@@ -120,12 +197,32 @@ async def get_top_content(
 @router.get("/top-shows")
 async def get_top_shows(
     days: int = Query(default=30, ge=1, le=365),
-    limit: int = Query(default=10, ge=1, le=50)
+    limit: int = Query(default=10, ge=1, le=50),
+    start_date: Optional[str] = Query(default=None),
+    end_date: Optional[str] = Query(default=None),
+    users: Optional[str] = Query(default=None),
+    clients: Optional[str] = Query(default=None),
+    devices: Optional[str] = Query(default=None),
+    playback_methods: Optional[str] = Query(default=None),
 ):
     """获取热门剧集（按剧名聚合）"""
-    since_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+    user_list = [u.strip() for u in users.split(",")] if users else None
+    client_list = [c.strip() for c in clients.split(",")] if clients else None
+    device_list = [d.strip() for d in devices.split(",")] if devices else None
+    method_list = [m.strip() for m in playback_methods.split(",")] if playback_methods else None
+
+    where_clause, params = build_filter_conditions(
+        days=days if not (start_date or end_date) else None,
+        start_date=start_date,
+        end_date=end_date,
+        users=user_list,
+        clients=client_list,
+        devices=device_list,
+        item_types=["Episode"],  # 只查剧集
+        playback_methods=method_list,
+    )
+
     count_expr = get_count_expr()
-    date_col = local_date("DateCreated")
 
     async with get_playback_db() as db:
         async with db.execute(f"""
@@ -136,9 +233,9 @@ async def get_top_shows(
                 {count_expr} as play_count,
                 COALESCE(SUM(PlayDuration), 0) as total_duration
             FROM PlaybackActivity
-            WHERE {date_col} >= date(?) AND ItemType = 'Episode'
+            WHERE {where_clause}
             GROUP BY ItemId
-        """, (since_date,)) as cursor:
+        """, params) as cursor:
             shows = defaultdict(lambda: {
                 "play_count": 0,
                 "duration": 0,
@@ -164,15 +261,19 @@ async def get_top_shows(
     for show_name, data in sorted_shows:
         # 获取海报和剧集介绍
         poster_url = None
+        backdrop_url = None
         overview = ""
         if data["item_id"]:
             info = await emby_service.get_item_info(str(data["item_id"]))
             if info and info.get("SeriesId"):
-                poster_url = f"/api/poster/{info['SeriesId']}"
+                series_id = info["SeriesId"]
+                poster_url = f"/api/poster/{series_id}"
                 # 获取剧集总介绍
-                series_info = await emby_service.get_item_info(info["SeriesId"])
+                series_info = await emby_service.get_item_info(series_id)
                 if series_info:
                     overview = series_info.get("Overview", "")
+                    if series_info.get("BackdropImageTags"):
+                        backdrop_url = f"/api/backdrop/{series_id}"
 
         result.append({
             "show_name": show_name,
@@ -180,6 +281,7 @@ async def get_top_shows(
             "duration_hours": round(data["duration"] / 3600, 2),
             "episode_count": len(data["episodes"]),
             "poster_url": poster_url,
+            "backdrop_url": backdrop_url,
             "overview": overview
         })
 
@@ -194,6 +296,22 @@ async def get_poster(
 ):
     """代理获取 Emby 海报图片"""
     content, content_type = await emby_service.get_poster(item_id, maxHeight, maxWidth)
+
+    return StreamingResponse(
+        iter([content]),
+        media_type=content_type,
+        headers={"Cache-Control": "public, max-age=86400"} if content else {}
+    )
+
+
+@router.get("/backdrop/{item_id}")
+async def get_backdrop(
+    item_id: str,
+    maxHeight: int = Query(default=720),
+    maxWidth: int = Query(default=1280)
+):
+    """代理获取 Emby 背景图(横版)"""
+    content, content_type = await emby_service.get_backdrop(item_id, maxHeight, maxWidth)
 
     return StreamingResponse(
         iter([content]),

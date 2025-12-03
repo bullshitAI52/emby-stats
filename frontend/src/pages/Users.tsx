@@ -2,13 +2,14 @@ import { Card, Avatar, ChartSkeleton, UserListSkeleton } from '@/components/ui'
 import { UsersChart } from '@/components/charts'
 import { useUsers } from '@/hooks/useStats'
 import { formatDate } from '@/lib/utils'
+import type { FilterParams } from '@/services/api'
 
 interface UsersProps {
-  days: number
+  filterParams: FilterParams
 }
 
-export function Users({ days }: UsersProps) {
-  const { data: usersData, loading } = useUsers(days)
+export function Users({ filterParams }: UsersProps) {
+  const { data: usersData, loading } = useUsers(filterParams)
 
   return (
     <div>
@@ -35,12 +36,12 @@ export function Users({ days }: UsersProps) {
                     <Avatar name={user.username} index={index} />
                     <div>
                       <p className="font-medium text-sm">{user.username}</p>
-                      <p className="text-xs text-zinc-500">{user.play_count} 次播放</p>
+                      <p className="text-xs text-[var(--color-text-secondary)]">{user.play_count} 次播放</p>
                     </div>
                   </div>
                   <div className="text-right">
                     <p className="font-semibold text-primary text-sm">{user.duration_hours}h</p>
-                    <p className="text-xs text-zinc-500">
+                    <p className="text-xs text-[var(--color-text-secondary)]">
                       {user.last_play ? formatDate(user.last_play) : '-'}
                     </p>
                   </div>

@@ -30,6 +30,9 @@ COPY backend/ .
 # 复制构建好的前端代码
 COPY --from=frontend-builder /app/frontend/dist /app/frontend
 
+# 创建可写的配置目录
+RUN mkdir -p /config
+
 # 暴露端口
 EXPOSE 8000
 

@@ -10,6 +10,7 @@ import type {
   DevicesData,
   RecentData,
   NowPlayingData,
+  FilterOptionsData,
 } from '@/types'
 
 const API_BASE = '/api'
@@ -21,8 +22,28 @@ export function setAuthErrorHandler(handler: () => void) {
   onAuthError = handler
 }
 
-async function fetchAPI<T>(endpoint: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${endpoint}`)
+// 筛选参数类型
+export type FilterParams = Record<string, string>
+
+// 构建带筛选参数的查询字符串
+function buildQueryString(params: FilterParams): string {
+  const searchParams = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== '') {
+      searchParams.set(key, value)
+    }
+  }
+  return searchParams.toString()
+}
+
+async function fetchAPI<T>(endpoint: string, params?: FilterParams): Promise<T> {
+  let url = `${API_BASE}${endpoint}`
+  if (params && Object.keys(params).length > 0) {
+    const queryString = buildQueryString(params)
+    url += (endpoint.includes('?') ? '&' : '?') + queryString
+  }
+
+  const res = await fetch(url)
   if (!res.ok) {
     // 401 错误触发认证失败
     if (res.status === 401) {
@@ -34,38 +55,41 @@ async function fetchAPI<T>(endpoint: string): Promise<T> {
 }
 
 export const api = {
-  getOverview: (days: number): Promise<OverviewData> =>
-    fetchAPI(`/overview?days=${days}`),
+  getOverview: (params: FilterParams = {}): Promise<OverviewData> =>
+    fetchAPI('/overview', params),
 
-  getTrend: (days: number): Promise<TrendData> =>
-    fetchAPI(`/trend?days=${days}`),
+  getTrend: (params: FilterParams = {}): Promise<TrendData> =>
+    fetchAPI('/trend', params),
 
-  getHourly: (days: number): Promise<HourlyData> =>
-    fetchAPI(`/hourly?days=${days}`),
+  getHourly: (params: FilterParams = {}): Promise<HourlyData> =>
+    fetchAPI('/hourly', params),
 
-  getTopShows: (days: number, limit = 16): Promise<TopShowsData> =>
-    fetchAPI(`/top-shows?days=${days}&limit=${limit}`),
+  getTopShows: (params: FilterParams = {}, limit = 16): Promise<TopShowsData> =>
+    fetchAPI('/top-shows', { ...params, limit: String(limit) }),
 
-  getTopContent: (days: number, limit = 18): Promise<TopContentData> =>
-    fetchAPI(`/top-content?days=${days}&limit=${limit}`),
+  getTopContent: (params: FilterParams = {}, limit = 18): Promise<TopContentData> =>
+    fetchAPI('/top-content', { ...params, limit: String(limit) }),
 
-  getUsers: (days: number): Promise<UsersData> =>
-    fetchAPI(`/users?days=${days}`),
+  getUsers: (params: FilterParams = {}): Promise<UsersData> =>
+    fetchAPI('/users', params),
 
-  getClients: (days: number): Promise<ClientsData> =>
-    fetchAPI(`/clients?days=${days}`),
+  getClients: (params: FilterParams = {}): Promise<ClientsData> =>
+    fetchAPI('/clients', params),
 
-  getPlaybackMethods: (days: number): Promise<PlaybackMethodsData> =>
-    fetchAPI(`/playback-methods?days=${days}`),
+  getPlaybackMethods: (params: FilterParams = {}): Promise<PlaybackMethodsData> =>
+    fetchAPI('/playback-methods', params),
 
-  getDevices: (days: number): Promise<DevicesData> =>
-    fetchAPI(`/devices?days=${days}`),
+  getDevices: (params: FilterParams = {}): Promise<DevicesData> =>
+    fetchAPI('/devices', params),
 
   getRecent: (limit = 48): Promise<RecentData> =>
-    fetchAPI(`/recent?limit=${limit}`),
+    fetchAPI('/recent', { limit: String(limit) }),
 
   getNowPlaying: (): Promise<NowPlayingData> =>
     fetchAPI('/now-playing'),
+
+  getFilterOptions: (): Promise<FilterOptionsData> =>
+    fetchAPI('/filter-options'),
 
   // 认证相关
   checkAuth: async (): Promise<{ authenticated: boolean; username?: string }> => {
@@ -88,6 +112,26 @@ export const api = {
 
   logout: async (): Promise<void> => {
     await fetch(`${API_BASE}/auth/logout`, { method: 'POST' })
+  },
+
+  // 名称映射相关
+  getNameMappings: async (): Promise<{ clients: Record<string, string>; devices: Record<string, string> }> => {
+    const res = await fetch(`${API_BASE}/name-mappings`)
+    return res.json()
+  },
+
+  saveNameMappings: async (mappings: { clients: Record<string, string>; devices: Record<string, string> }): Promise<{ status: string; message: string }> => {
+    const res = await fetch(`${API_BASE}/name-mappings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(mappings),
+    })
+    return res.json()
+  },
+
+  reloadNameMappings: async (): Promise<{ status: string; message: string }> => {
+    const res = await fetch(`${API_BASE}/name-mappings/reload`, { method: 'POST' })
+    return res.json()
   },
 }
 
