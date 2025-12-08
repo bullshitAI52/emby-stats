@@ -19,12 +19,12 @@
 
 ## What's New
 
-> **v1.5** (2025-12-04) - 观影报告推送
-> - 支持通过 Telegram Bot 推送观影报告（每日/每周/每月三个独立任务）
-> - 美化的报告图片：现代深色主题、渐变背景、海报阴影、排名颜色
-> - 内容统计去重：同一集播放多次只算1个内容
+> **v1.7** (2025-12-08) - 多服务器支持
+> - 支持管理多个 Emby 服务器，Web 界面添加/编辑/切换
+> - 文件选择器：添加服务器时可浏览容器内文件系统选择数据库路径
+> - 旧版环境变量配置自动迁移
 >
-> **v1.4** - 历史记录搜索功能，支持按内容名称搜索
+> **v1.5** - 观影报告推送（Telegram Bot）
 >
 > [查看完整更新日志](CHANGELOG.md)
 
@@ -118,18 +118,43 @@ docker run -d \
 
 ## Configuration
 
-### 环境变量
+### 多服务器支持
+
+本项目支持管理多个 Emby 服务器。你可以通过 Web 界面添加、编辑和切换不同的服务器。
+
+**首次使用：**
+- 如果使用旧版配置（环境变量 `EMBY_URL`），系统会自动迁移为第一个服务器
+- 登录后点击右上角的 **服务器图标** 可以管理服务器
+
+**添加服务器：**
+1. 点击右上角的服务器图标
+2. 点击「添加服务器」
+3. 填写服务器信息：
+   - 服务器名称（如：主服务器、备用服务器）
+   - Emby 服务器地址
+   - 数据库路径（playback_reporting.db、users.db、authentication.db）
+   - API Key（可选，留空则自动从数据库获取）
+   - 是否设为默认服务器
+
+**切换服务器：**
+- 在登录页面选择要使用的服务器
+- 登录后，如果配置了多个服务器，可以在顶部栏的下拉菜单中选择
+
+### 环境变量（向后兼容）
+
+> **注意**：如果使用多服务器功能，建议通过 Web 界面管理服务器配置。环境变量仅用于向后兼容。
 
 | 变量 | 必填 | 默认值 | 说明 |
 |------|:----:|--------|------|
-| `EMBY_URL` | ✅ | - | Emby 服务器地址，如 `http://192.168.1.100:8096` |
-| `EMBY_API_KEY` | ❌ | - | Emby API Key，不填则自动从数据库获取 |
+| `EMBY_URL` | ❌ | - | Emby 服务器地址（旧版配置，会自动迁移） |
+| `EMBY_API_KEY` | ❌ | - | Emby API Key（旧版配置，会自动迁移） |
 | `TZ` | ❌ | `UTC` | 时区设置，如 `Asia/Shanghai` |
 | `MIN_PLAY_SECONDS` | ❌ | `60` | 最小播放秒数，低于此值不计入播放次数统计 |
 | `NAME_MAPPINGS_FILE` | ❌ | `/config/name_mappings.json` | 名称映射配置文件路径 |
 
 ### 数据目录结构
 
+**单服务器配置（旧版）：**
 需要将 Emby 的 `data` 目录（包含 `playback_reporting.db`）挂载到容器的 `/data`：
 
 ```
@@ -137,11 +162,40 @@ docker run -d \
 └── playback_reporting.db       # 播放记录数据库（必需）
 ```
 
+**多服务器配置（推荐）：**
+每个服务器需要单独挂载其数据目录。可以通过 Web 界面配置每个服务器的数据库路径。
+
 > **注意**: Emby 数据目录通常位于：
 > - **Linux**: `/var/lib/emby/` 或 `/opt/emby-server/data/`
 > - **Docker**: 查看你的 Emby 容器挂载配置
 > - **Synology**: `/volume1/docker/emby/config/`
 > - **Windows**: `C:\Users\<用户名>\AppData\Roaming\Emby-Server\`
+
+**示例：多服务器 Docker Compose 配置**
+
+```yaml
+services:
+  emby-stats:
+    image: qc0624/emby-stats:latest
+    container_name: emby-stats
+    ports:
+      - "8899:8000"
+    volumes:
+      # 服务器1的数据目录
+      - /path/to/emby1/data:/data1:ro
+      # 服务器2的数据目录
+      - /path/to/emby2/data:/data2:ro
+      # 配置目录（用于保存服务器配置）
+      - emby-stats-config:/config
+    environment:
+      - TZ=Asia/Shanghai
+    restart: unless-stopped
+
+volumes:
+  emby-stats-config:
+```
+
+然后在 Web 界面中添加服务器时，使用容器内的路径（如 `/data1/playback_reporting.db`）。
 
 ### Playback Reporting 插件
 
