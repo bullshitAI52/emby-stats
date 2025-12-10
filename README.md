@@ -11,7 +11,7 @@
 
 **Emby 播放统计分析面板 - 可视化你的观影数据**
 
-[Features](#features) • [Quick Start](#quick-start) • [Configuration](#configuration) • [FAQ](#faq)
+[Features](#features) • [Quick Start](#quick-start) • [Configuration](#configuration) • [FAQ](#faq) • [开发文档](DEVELOPMENT.md)
 
 </div>
 
@@ -87,6 +87,8 @@ services:
     volumes:
       # 挂载包含 playback_reporting.db 的 data 目录（只读）
       - /path/to/emby/data:/data:ro
+      # 配置目录（保存服务器配置、TG推送配置等，必须挂载否则更新容器后配置丢失）
+      - /path/to/emby-stats/config:/config
     environment:
       # Emby 服务器地址（必填）
       - EMBY_URL=http://your-emby-server:8096
@@ -112,6 +114,7 @@ docker run -d \
   --name emby-stats \
   -p 8899:8000 \
   -v /path/to/emby/data:/data:ro \
+  -v /path/to/emby-stats/config:/config \
   -e EMBY_URL=http://your-emby-server:8096 \
   -e TZ=Asia/Shanghai \
   qc0624/emby-stats:latest
