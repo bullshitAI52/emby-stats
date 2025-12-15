@@ -8,8 +8,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 
-from routers import stats_router, media_router, auth_router
+from routers import (
+    stats_router,
+    media_router,
+    auth_router,
+    servers_router,
+    files_router,
+    report_router,
+    tg_bot_router
+)
 from routers.auth import get_current_session
+from services.session import session_service
+from services.servers import server_service
+from scheduler import setup_scheduler
 
 # 创建应用实例
 app = FastAPI(title="Emby Stats")
@@ -28,12 +39,14 @@ PUBLIC_PATHS = {
     "/api/auth/login",
     "/api/auth/check",
     "/api/auth/logout",
+    "/api/debug/scheduler",  # 调试端点
     "/manifest.json",
     "/sw.js",
 }
 
 # 不需要认证的路径前缀
 PUBLIC_PREFIXES = [
+    "/api/servers",      # 服务器列表（登录页需要）
     "/icons/",
     "/static/",
 ]
@@ -57,7 +70,7 @@ async def auth_middleware(request: Request, call_next):
         return await call_next(request)
 
     # API 请求需要验证
-    session = get_current_session(request)
+    session = await get_current_session(request)
     if not session:
         return JSONResponse(
             status_code=401,
@@ -67,10 +80,60 @@ async def auth_middleware(request: Request, call_next):
     return await call_next(request)
 
 
+@app.on_event("startup")
+async def startup_event():
+    """应用启动时执行的初始化操作"""
+    import logging
+    logger = logging.getLogger("uvicorn")
+
+    # 初始化会话数据库
+    await session_service.init_db()
+    logger.info("✓ 会话数据库初始化完成")
+
+    # 初始化服务器配置数据库
+    await server_service.init_servers_table()
+    logger.info("✓ 服务器配置数据库初始化完成")
+
+    # 清理过期会话
+    cleaned = await session_service.clean_expired_sessions()
+    if cleaned > 0:
+        logger.info(f"✓ 清理了 {cleaned} 个过期会话")
+
+    # 启动定时任务调度器
+    setup_scheduler()
+    logger.info("✓ 定时任务调度器已启动")
+
+
 # 注册路由
 app.include_router(auth_router)
 app.include_router(stats_router)
 app.include_router(media_router)
+app.include_router(servers_router)
+app.include_router(files_router)
+app.include_router(report_router)
+app.include_router(tg_bot_router)
+
+
+# 调试用：查看调度器状态
+@app.get("/api/debug/scheduler")
+async def debug_scheduler_status():
+    """查看调度器状态（调试用）"""
+    from scheduler import scheduler
+
+    jobs_info = []
+    for job in scheduler.get_jobs():
+        jobs_info.append({
+            "id": job.id,
+            "next_run_time": str(job.next_run_time) if job.next_run_time else None,
+            "trigger": str(job.trigger)
+        })
+
+    return {
+        "running": scheduler.running,
+        "job_count": len(scheduler.get_jobs()),
+        "jobs": jobs_info
+    }
+
 
 # 静态文件服务
 frontend_path = "/app/frontend"

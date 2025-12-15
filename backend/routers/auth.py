@@ -2,51 +2,68 @@
 认证相关路由模块
 处理用户登录、登出和会话验证
 """
-import secrets
-import time
+import httpx
 from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel
 
-from services.emby import emby_service
+from services.servers import server_service
+from services.session import session_service
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
-
-# 简单的会话存储（内存中）
-# 生产环境可考虑使用 Redis
-sessions: dict[str, dict] = {}
-
-# 会话有效期（秒）- 7 天
-SESSION_EXPIRE = 7 * 24 * 60 * 60
 
 
 class LoginRequest(BaseModel):
     username: str
     password: str
+    server_id: str  # 添加 server_id 字段
 
 
 class LoginResponse(BaseModel):
-    success: bool
-    username: str | None = None
-    message: str | None = None
+    authenticated: bool
+    user: dict | None = None
 
 
-def clean_expired_sessions():
-    """清理过期会话"""
-    now = time.time()
-    expired = [k for k, v in sessions.items() if v.get("expires", 0) < now]
-    for k in expired:
-        del sessions[k]
+async def authenticate_user_on_server(server_config: dict, username: str, password: str) -> dict | None:
+    """在指定服务器上认证用户"""
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                f"{server_config['emby_url']}/emby/Users/AuthenticateByName",
+                headers={
+                    "X-Emby-Authorization": 'MediaBrowser Client="Emby Stats", Device="Web", DeviceId="emby-stats", Version="1.0.0"',
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "Username": username,
+                    "Pw": password
+                },
+                timeout=10
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                user_data = data.get("User", {})
+                policy = user_data.get("Policy", {})
+                return {
+                    "user_id": user_data.get("Id"),
+                    "username": user_data.get("Name"),
+                    "is_admin": policy.get("IsAdministrator", False)
+                }
+    except Exception as e:
+        print(f"Authentication error: {e}")
+    return None
 
 
 @router.post("/login", response_model=LoginResponse)
 async def login(request: LoginRequest, response: Response):
     """用户登录（仅限管理员）"""
-    # 清理过期会话
-    clean_expired_sessions()
+    # 获取服务器配置
+    server_config = await server_service.get_server(request.server_id)
+    if not server_config:
+        raise HTTPException(status_code=404, detail="服务器不存在")
 
     # 验证用户
-    user_info = await emby_service.authenticate_user(
-        request.username, request.password
+    user_info = await authenticate_user_on_server(
+        server_config, request.username, request.password
     )
 
     if not user_info:
@@ -56,35 +73,42 @@ async def login(request: LoginRequest, response: Response):
     if not user_info.get("is_admin"):
         raise HTTPException(status_code=403, detail="仅管理员可访问")
 
-    # 创建会话
-    session_id = secrets.token_urlsafe(32)
-    sessions[session_id] = {
-        "user_id": user_info["user_id"],
-        "username": user_info["username"],
-        "is_admin": user_info["is_admin"],
-        "expires": time.time() + SESSION_EXPIRE
-    }
+    # 创建会话（持久化到数据库）
+    session_id = await session_service.create_session(
+        user_id=user_info["user_id"],
+        username=user_info["username"],
+        is_admin=user_info["is_admin"],
+        server_id=request.server_id
+    )
 
-    # 设置 cookie
+    # 设置 cookie（30天有效期）
     response.set_cookie(
         key="session_id",
         value=session_id,
         httponly=True,
-        max_age=SESSION_EXPIRE,
-        samesite="lax"
+        max_age=session_service.session_expire,
+        samesite="lax",
+        path="/"
     )
 
-    return LoginResponse(success=True, username=user_info["username"])
+    return LoginResponse(
+        authenticated=True,
+        user={
+            "user_id": user_info["user_id"],
+            "username": user_info["username"],
+            "is_admin": user_info["is_admin"]
+        }
+    )
 
 
 @router.post("/logout")
 async def logout(request: Request, response: Response):
     """用户登出"""
     session_id = request.cookies.get("session_id")
-    if session_id and session_id in sessions:
-        del sessions[session_id]
+    if session_id:
+        await session_service.delete_session(session_id)
 
-    response.delete_cookie("session_id")
+    response.delete_cookie("session_id", path="/")
     return {"success": True}
 
 
@@ -92,15 +116,9 @@ async def logout(request: Request, response: Response):
 async def check_auth(request: Request):
     """检查登录状态"""
     session_id = request.cookies.get("session_id")
+    session = await session_service.get_session(session_id)
 
-    if not session_id or session_id not in sessions:
-        return {"authenticated": False}
-
-    session = sessions[session_id]
-
-    # 检查是否过期
-    if session.get("expires", 0) < time.time():
-        del sessions[session_id]
+    if not session:
         return {"authenticated": False}
 
     return {
@@ -109,17 +127,7 @@ async def check_auth(request: Request):
     }
 
 
-def get_current_session(request: Request) -> dict | None:
+async def get_current_session(request: Request) -> dict | None:
     """获取当前会话（供中间件使用）"""
     session_id = request.cookies.get("session_id")
-
-    if not session_id or session_id not in sessions:
-        return None
-
-    session = sessions[session_id]
-
-    if session.get("expires", 0) < time.time():
-        del sessions[session_id]
-        return None
-
-    return session
+    return await session_service.get_session(session_id)

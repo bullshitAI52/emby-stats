@@ -2,7 +2,7 @@
 统计相关路由模块
 处理所有统计数据的 API 端点
 """
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, HTTPException
 from datetime import datetime, timedelta
 from typing import Optional, List
 
@@ -11,13 +11,27 @@ from database import (
     get_count_expr,
     get_duration_filter,
     local_datetime,
-    local_date
+    local_date,
+    get_library_db,
+    get_users_db,
+    convert_guid_bytes_to_standard
 )
 from services.users import user_service
 from services.emby import emby_service
+from services.servers import server_service
 from name_mappings import name_mapping_service
 
 router = APIRouter(prefix="/api", tags=["stats"])
+
+
+async def get_server_config_from_id(server_id: Optional[str]) -> Optional[dict]:
+    """根据 server_id 获取服务器配置的辅助函数"""
+    if not server_id:
+        return None
+    server_config = await server_service.get_server(server_id)
+    if not server_config:
+        raise HTTPException(status_code=404, detail="服务器不存在")
+    return server_config
 
 
 def build_filter_conditions(
@@ -95,6 +109,7 @@ def build_filter_conditions(
 
 @router.get("/overview")
 async def get_overview(
+    server_id: Optional[str] = Query(default=None, description="服务器ID"),
     days: int = Query(default=30, ge=1, le=365),
     start_date: Optional[str] = Query(default=None, description="开始日期 YYYY-MM-DD"),
     end_date: Optional[str] = Query(default=None, description="结束日期 YYYY-MM-DD"),
@@ -105,7 +120,8 @@ async def get_overview(
     playback_methods: Optional[str] = Query(default=None, description="播放方式列表，逗号分隔"),
 ):
     """获取总览统计"""
-    user_map = await user_service.get_user_map()
+    server_config = await get_server_config_from_id(server_id)
+    user_map = await user_service.get_user_map(server_config)
 
     # 解析逗号分隔的列表参数
     user_list = [u.strip() for u in users.split(",")] if users else None
@@ -125,7 +141,7 @@ async def get_overview(
         playback_methods=method_list,
     )
 
-    async with get_playback_db() as db:
+    async with get_playback_db(server_config) as db:
         count_expr = get_count_expr()
 
         # 总播放次数（只计满足时长的）和时长（统计所有）
@@ -168,6 +184,7 @@ async def get_overview(
 
 @router.get("/trend")
 async def get_trend(
+    server_id: Optional[str] = Query(default=None, description="服务器ID"),
     days: int = Query(default=30, ge=1, le=365),
     start_date: Optional[str] = Query(default=None),
     end_date: Optional[str] = Query(default=None),
@@ -178,6 +195,7 @@ async def get_trend(
     playback_methods: Optional[str] = Query(default=None),
 ):
     """获取播放趋势（按天）"""
+    server_config = await get_server_config_from_id(server_id)
     user_list = [u.strip() for u in users.split(",")] if users else None
     client_list = [c.strip() for c in clients.split(",")] if clients else None
     device_list = [d.strip() for d in devices.split(",")] if devices else None
@@ -198,7 +216,7 @@ async def get_trend(
     count_expr = get_count_expr()
     date_col = local_date("DateCreated")
 
-    async with get_playback_db() as db:
+    async with get_playback_db(server_config) as db:
         async with db.execute(f"""
             SELECT
                 {date_col} as play_date,
@@ -222,6 +240,7 @@ async def get_trend(
 
 @router.get("/users")
 async def get_user_stats(
+    server_id: Optional[str] = Query(default=None, description="服务器ID"),
     days: int = Query(default=30, ge=1, le=365),
     start_date: Optional[str] = Query(default=None),
     end_date: Optional[str] = Query(default=None),
@@ -232,7 +251,8 @@ async def get_user_stats(
     playback_methods: Optional[str] = Query(default=None),
 ):
     """获取用户统计"""
-    user_map = await user_service.get_user_map()
+    server_config = await get_server_config_from_id(server_id)
+    user_map = await user_service.get_user_map(server_config)
 
     user_list = [u.strip() for u in users.split(",")] if users else None
     client_list = [c.strip() for c in clients.split(",")] if clients else None
@@ -254,7 +274,7 @@ async def get_user_stats(
     count_expr = get_count_expr()
     datetime_col = local_datetime("DateCreated")
 
-    async with get_playback_db() as db:
+    async with get_playback_db(server_config) as db:
         async with db.execute(f"""
             SELECT
                 UserId,
@@ -284,6 +304,7 @@ async def get_user_stats(
 
 @router.get("/clients")
 async def get_client_stats(
+    server_id: Optional[str] = Query(default=None, description="服务器ID"),
     days: int = Query(default=30, ge=1, le=365),
     start_date: Optional[str] = Query(default=None),
     end_date: Optional[str] = Query(default=None),
@@ -294,6 +315,7 @@ async def get_client_stats(
     playback_methods: Optional[str] = Query(default=None),
 ):
     """获取客户端统计"""
+    server_config = await get_server_config_from_id(server_id)
     user_list = [u.strip() for u in users.split(",")] if users else None
     client_list = [c.strip() for c in clients.split(",")] if clients else None
     device_list = [d.strip() for d in devices.split(",")] if devices else None
@@ -313,7 +335,7 @@ async def get_client_stats(
 
     count_expr = get_count_expr()
 
-    async with get_playback_db() as db:
+    async with get_playback_db(server_config) as db:
         async with db.execute(f"""
             SELECT
                 ClientName,
@@ -360,6 +382,7 @@ async def get_client_stats(
 
 @router.get("/devices")
 async def get_device_stats(
+    server_id: Optional[str] = Query(default=None, description="服务器ID"),
     days: int = Query(default=30, ge=1, le=365),
     start_date: Optional[str] = Query(default=None),
     end_date: Optional[str] = Query(default=None),
@@ -370,6 +393,7 @@ async def get_device_stats(
     playback_methods: Optional[str] = Query(default=None),
 ):
     """获取设备统计"""
+    server_config = await get_server_config_from_id(server_id)
     user_list = [u.strip() for u in users.split(",")] if users else None
     client_list = [c.strip() for c in clients.split(",")] if clients else None
     device_list = [d.strip() for d in devices.split(",")] if devices else None
@@ -389,7 +413,7 @@ async def get_device_stats(
 
     count_expr = get_count_expr()
 
-    async with get_playback_db() as db:
+    async with get_playback_db(server_config) as db:
         async with db.execute(f"""
             SELECT
                 DeviceName,
@@ -442,6 +466,7 @@ async def get_device_stats(
 
 @router.get("/playback-methods")
 async def get_playback_methods(
+    server_id: Optional[str] = Query(default=None, description="服务器ID"),
     days: int = Query(default=30, ge=1, le=365),
     start_date: Optional[str] = Query(default=None),
     end_date: Optional[str] = Query(default=None),
@@ -452,6 +477,7 @@ async def get_playback_methods(
     playback_methods: Optional[str] = Query(default=None),
 ):
     """获取播放方式统计"""
+    server_config = await get_server_config_from_id(server_id)
     user_list = [u.strip() for u in users.split(",")] if users else None
     client_list = [c.strip() for c in clients.split(",")] if clients else None
     device_list = [d.strip() for d in devices.split(",")] if devices else None
@@ -471,7 +497,7 @@ async def get_playback_methods(
 
     count_expr = get_count_expr()
 
-    async with get_playback_db() as db:
+    async with get_playback_db(server_config) as db:
         async with db.execute(f"""
             SELECT
                 PlaybackMethod,
@@ -495,6 +521,7 @@ async def get_playback_methods(
 
 @router.get("/hourly")
 async def get_hourly_stats(
+    server_id: Optional[str] = Query(default=None, description="服务器ID"),
     days: int = Query(default=30, ge=1, le=365),
     start_date: Optional[str] = Query(default=None),
     end_date: Optional[str] = Query(default=None),
@@ -505,6 +532,7 @@ async def get_hourly_stats(
     playback_methods: Optional[str] = Query(default=None),
 ):
     """获取按小时统计（热力图数据）"""
+    server_config = await get_server_config_from_id(server_id)
     user_list = [u.strip() for u in users.split(",")] if users else None
     client_list = [c.strip() for c in clients.split(",")] if clients else None
     device_list = [d.strip() for d in devices.split(",")] if devices else None
@@ -525,7 +553,7 @@ async def get_hourly_stats(
     count_expr = get_count_expr()
     datetime_col = local_datetime("DateCreated")
 
-    async with get_playback_db() as db:
+    async with get_playback_db(server_config) as db:
         async with db.execute(f"""
             SELECT
                 strftime('%w', {datetime_col}) as day_of_week,
@@ -547,10 +575,13 @@ async def get_hourly_stats(
 
 
 @router.get("/now-playing")
-async def get_now_playing():
+async def get_now_playing(
+    server_id: Optional[str] = Query(default=None, description="服务器ID")
+):
     """获取当前正在播放的内容"""
-    user_map = await user_service.get_user_map()
-    sessions = await emby_service.get_now_playing()
+    server_config = await get_server_config_from_id(server_id)
+    user_map = await user_service.get_user_map(server_config)
+    sessions = await emby_service.get_now_playing(server_config)
 
     data = []
     for session in sessions:
@@ -613,6 +644,7 @@ async def get_now_playing():
 
 @router.get("/recent")
 async def get_recent_plays(
+    server_id: Optional[str] = Query(default=None, description="服务器ID"),
     limit: int = Query(default=20, ge=1, le=100),
     days: Optional[int] = Query(default=None, ge=1, le=365, description="天数范围，不传则查询全部"),
     start_date: Optional[str] = Query(default=None, description="开始日期 YYYY-MM-DD"),
@@ -625,7 +657,8 @@ async def get_recent_plays(
     search: Optional[str] = Query(default=None, description="搜索关键词，匹配内容名称"),
 ):
     """获取最近播放记录"""
-    user_map = await user_service.get_user_map()
+    server_config = await get_server_config_from_id(server_id)
+    user_map = await user_service.get_user_map(server_config)
     datetime_col = local_datetime("DateCreated")
 
     # 解析筛选参数
@@ -654,7 +687,7 @@ async def get_recent_plays(
     # 获取播放时长过滤条件
     duration_filter = get_duration_filter()
 
-    async with get_playback_db() as db:
+    async with get_playback_db(server_config) as db:
         async with db.execute(f"""
             SELECT
                 {datetime_col} as LocalTime,
@@ -681,9 +714,10 @@ async def get_recent_plays(
                 username = user_service.match_username(user_id, user_map)
 
                 # 获取海报和背景图
-                info = await emby_service.get_item_info(str(item_id))
-                poster_url = emby_service.get_poster_url(str(item_id), item_type, info)
-                backdrop_url = emby_service.get_backdrop_url(str(item_id), item_type, info)
+                info = await emby_service.get_item_info(str(item_id), server_config)
+                server_id_param = server_id if server_id else None
+                poster_url = emby_service.get_poster_url(str(item_id), item_type, info, server_id_param)
+                backdrop_url = emby_service.get_backdrop_url(str(item_id), item_type, info, server_id_param)
 
                 # 提取剧名
                 show_name = item_name.split(" - ")[0] if " - " in item_name else item_name
@@ -695,7 +729,7 @@ async def get_recent_plays(
                 if item_type == "Episode" and not backdrop_url and info:
                     series_id = info.get("SeriesId")
                     if series_id:
-                        series_info = await emby_service.get_item_info(series_id)
+                        series_info = await emby_service.get_item_info(series_id, server_config)
                         if series_info and series_info.get("BackdropImageTags"):
                             backdrop_url = f"/api/backdrop/{series_id}"
 
@@ -719,11 +753,14 @@ async def get_recent_plays(
 
 
 @router.get("/filter-options")
-async def get_filter_options():
+async def get_filter_options(
+    server_id: Optional[str] = Query(default=None, description="服务器ID")
+):
     """获取所有可用的筛选选项"""
-    user_map = await user_service.get_user_map()
+    server_config = await get_server_config_from_id(server_id)
+    user_map = await user_service.get_user_map(server_config)
 
-    async with get_playback_db() as db:
+    async with get_playback_db(server_config) as db:
         # 获取所有用户
         async with db.execute("""
             SELECT DISTINCT UserId FROM PlaybackActivity WHERE UserId IS NOT NULL
@@ -824,3 +861,124 @@ async def reload_name_mappings():
     """重新加载名称映射配置"""
     name_mapping_service.reload()
     return {"status": "ok", "message": "配置已重新加载"}
+
+
+@router.get("/favorites")
+async def get_favorites(
+    server_id: Optional[str] = Query(default=None, description="服务器ID")
+):
+    """获取用户收藏统计（使用 Emby API）"""
+    server_config = await get_server_config_from_id(server_id)
+    user_map = await user_service.get_user_map(server_config)
+
+    emby_url = server_config.get('emby_url') if server_config else None
+    if not emby_url:
+        return {
+            "users_favorites": [],
+            "items": [],
+            "total_users": 0,
+            "users_with_favorites": 0
+        }
+
+    api_key = await emby_service.get_api_key(server_config)
+    if not api_key:
+        return {
+            "users_favorites": [],
+            "items": [],
+            "total_users": 0,
+            "users_with_favorites": 0
+        }
+
+    import httpx
+    user_favorites_dict = {}
+    items_dict = {}
+
+    # 遍历所有用户，获取每个用户的收藏
+    for user_id, username in user_map.items():
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(
+                    f"{emby_url}/emby/Users/{user_id}/Items",
+                    params={
+                        "api_key": api_key,
+                        "Filters": "IsFavorite",
+                        "Recursive": "true",
+                        "Fields": "ProductionYear,SeriesInfo,ImageTags,SeriesPrimaryImageTag",
+                    },
+                    timeout=15
+                )
+
+                if resp.status_code != 200:
+                    continue
+
+                data = resp.json()
+                items = data.get("Items", [])
+
+                if not items:
+                    continue
+
+                # 添加到用户收藏字典
+                user_favorites_dict[user_id] = {
+                    "user_id": user_id,
+                    "username": username,
+                    "favorites": []
+                }
+
+                for item in items:
+                    item_id = item.get("Id", "")
+                    item_name = item.get("Name", "Unknown")
+                    item_type = item.get("Type", "Unknown")
+                    production_year = item.get("ProductionYear")
+                    series_id = item.get("SeriesId")
+                    series_name = item.get("SeriesName")
+                    has_poster = bool(item.get("ImageTags", {}).get("Primary") or series_id)
+
+                    favorite_item = {
+                        "item_id": item_id,
+                        "name": item_name,
+                        "type": item_type,
+                        "year": production_year,
+                        "has_poster": has_poster,
+                        "series_id": series_id,
+                        "series_name": series_name
+                    }
+                    user_favorites_dict[user_id]["favorites"].append(favorite_item)
+
+                    # 统计每个内容的收藏次数
+                    if item_id not in items_dict:
+                        items_dict[item_id] = {
+                            "item_id": item_id,
+                            "name": item_name,
+                            "type": item_type,
+                            "favorite_count": 0,
+                            "has_poster": has_poster,
+                            "series_id": series_id,
+                            "users": []
+                        }
+                    items_dict[item_id]["favorite_count"] += 1
+                    items_dict[item_id]["users"].append({
+                        "user_id": user_id,
+                        "username": username
+                    })
+
+        except Exception as e:
+            print(f"Error fetching favorites for user {user_id}: {e}")
+            continue
+
+    # 转换为列表
+    users_favorites = list(user_favorites_dict.values())
+    items = sorted(items_dict.values(), key=lambda x: x["favorite_count"], reverse=True)
+
+    # 统计数据
+    total_users = len(user_map)
+    users_with_favorites = len(user_favorites_dict)
+
+    return {
+        "users_favorites": users_favorites,
+        "items": items,
+        "total_users": total_users,
+        "users_with_favorites": users_with_favorites
+    }
+
+
+

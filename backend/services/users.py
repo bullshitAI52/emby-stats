@@ -4,18 +4,19 @@
 """
 import json
 import aiosqlite
+from typing import Optional
 from config import settings
-from database import convert_guid_bytes_to_standard
+from database import convert_guid_bytes_to_standard, get_users_db
 
 
 class UserService:
     """用户服务类"""
 
-    async def get_user_map(self) -> dict[str, str]:
+    async def get_user_map(self, server_config: Optional[dict] = None) -> dict[str, str]:
         """获取用户ID到用户名的映射"""
         user_map = {}
         try:
-            async with aiosqlite.connect(settings.USERS_DB) as db:
+            async with get_users_db(server_config) as db:
                 async with db.execute("SELECT guid, data FROM LocalUsersv2") as cursor:
                     async for row in cursor:
                         guid_bytes = row[0]

@@ -4,13 +4,13 @@ FROM node:20-slim AS frontend-builder
 WORKDIR /app/frontend
 
 # Copy package files
-COPY frontend/package*.json ./
+COPY frontend-vue/package*.json ./
 
 # Install dependencies
 RUN npm ci
 
 # Copy source code
-COPY frontend/ ./
+COPY frontend-vue/ ./
 
 # Build frontend
 RUN npm run build
@@ -20,7 +20,12 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# 安装依赖
+# 安装系统依赖和中文字体
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    fonts-noto-cjk \
+    && rm -rf /var/lib/apt/lists/*
+
+# 安装Python依赖
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 

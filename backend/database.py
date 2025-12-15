@@ -3,22 +3,42 @@
 提供数据库连接和 SQL 辅助函数
 """
 import aiosqlite
+from typing import Optional
 from config import settings
 
 
-def get_playback_db():
+def get_playback_db(server_config: Optional[dict] = None):
     """获取播放记录数据库连接"""
+    if server_config:
+        return aiosqlite.connect(server_config.get('playback_db', settings.PLAYBACK_DB))
     return aiosqlite.connect(settings.PLAYBACK_DB)
 
 
-def get_users_db():
+def get_users_db(server_config: Optional[dict] = None):
     """获取用户数据库连接"""
+    if server_config:
+        return aiosqlite.connect(server_config.get('users_db', settings.USERS_DB))
     return aiosqlite.connect(settings.USERS_DB)
 
 
-def get_auth_db():
+def get_auth_db(server_config: Optional[dict] = None):
     """获取认证数据库连接"""
+    if server_config:
+        return aiosqlite.connect(server_config.get('auth_db', settings.AUTH_DB))
     return aiosqlite.connect(settings.AUTH_DB)
+
+
+def get_library_db(server_config: Optional[dict] = None):
+    """获取媒体库数据库连接"""
+    # library.db 通常和 users.db 在同一目录
+    if server_config:
+        users_db = server_config.get('users_db', settings.USERS_DB)
+        library_db = users_db.replace('users.db', 'library.db')
+        return aiosqlite.connect(library_db)
+
+    library_db = settings.USERS_DB.replace('users.db', 'library.db')
+    return aiosqlite.connect(library_db)
+
 
 
 def get_count_expr() -> str:

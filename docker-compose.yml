@@ -1,6 +1,6 @@
 services:
   emby-stats:
-    build: .
+    image: qc0624/emby-stats:latest
     container_name: emby-stats
     restart: unless-stopped
     ports:
