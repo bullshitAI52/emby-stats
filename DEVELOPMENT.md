@@ -3,48 +3,23 @@
 <details>
 <summary><strong>📑 目录（点击展开）</strong></summary>
 
-- [项目概述](#项目概述)
-  - [核心功能](#核心功能)
-  - [技术栈](#技术栈)
-- [目录结构](#目录结构)
-  - [运行时目录](#运行时目录)
-- [后端架构](#后端架构)
-  - [1. 应用入口 (main.py)](#1-应用入口-mainpy)
-  - [2. 配置管理 (config.py)](#2-配置管理-configpy)
-  - [3. 数据库工具 (database.py)](#3-数据库工具-databasepy)
-  - [3.5. 工具模块 (utils/)](#35-工具模块-utils)
-  - [4. 路由模块 (routers/)](#4-路由模块-routers)
-  - [5. 服务模块 (services/)](#5-服务模块-services)
-- [前端架构](#前端架构)
-  - [1. 技术选型](#1-技术选型)
-  - [2. 状态管理 (stores/)](#2-状态管理-stores)
-  - [3. 路由配置 (router/)](#3-路由配置-router)
-  - [4. 页面组件 (pages/)](#4-页面组件-pages)
-  - [5. 布局组件 (layouts/)](#5-布局组件-layouts)
-  - [6. 图表组件 (components/charts/)](#6-图表组件-componentscharts)
-  - [7. UI 组件 (components/ui/)](#7-ui-组件-componentsui)
-  - [8. PWA 支持](#8-pwa-支持)
-- [关键特性](#关键特性)
-- [开发指南](#开发指南)
-  - [本地开发环境](#本地开发环境)
-  - [添加新页面](#添加新页面)
-  - [添加新的统计 API](#添加新的统计-api)
-  - [修改主题](#修改主题)
-  - [Docker 构建和部署](#docker-构建和部署)
-- [版本发布流程](#版本发布流程)
-- [版本更新历史](#版本更新历史)
-- [性能优化](#性能优化)
-  - [数据库索引优化](#数据库索引优化)
-- [常见问题](#常见问题)
-- [故障排除](#故障排除)
-- [贡献指南](#贡献指南)
-- [技术债务和改进方向](#技术债务和改进方向)
+**基础**
+- [项目概述](#overview) | [目录结构](#structure)
+
+**架构**
+- [后端架构](#backend) | [前端架构](#frontend)
+
+**开发**
+- [关键特性](#features) | [开发指南](#guide) | [版本发布](#release)
+
+**参考**
+- [版本历史](#changelog) | [性能优化](#performance) | [常见问题](#faq) | [故障排除](#troubleshooting)
 
 </details>
 
 ---
 
-## 项目概述
+<h2 id="overview">项目概述</h2>
 
 Emby Stats 是一个现代化的 Emby 媒体服务器播放统计分析面板，提供实时播放监控、数据可视化、用户统计、观影报告生成等功能。项目采用前后端分离架构，支持多服务器管理、PWA 离线访问和 Telegram 推送集成。
 
@@ -92,7 +67,7 @@ Emby Stats 是一个现代化的 Emby 媒体服务器播放统计分析面板，
 
 ---
 
-## 目录结构
+<h2 id="structure">目录结构</h2>
 
 ```
 emby-stats/
@@ -267,7 +242,7 @@ emby-stats/
 
 ---
 
-## 后端架构
+<h2 id="backend">后端架构</h2>
 
 ### 1. 应用入口 (main.py)
 
@@ -493,7 +468,7 @@ where_clause, params = build_filter_conditions(
 
 ---
 
-## 前端架构
+<h2 id="frontend">前端架构</h2>
 
 ### 1. 技术选型
 
@@ -869,7 +844,7 @@ interface Column {
 
 ---
 
-## 关键特性
+<h2 id="features">关键特性</h2>
 
 ### 1. 多服务器支持
 
@@ -907,7 +882,7 @@ interface Column {
 
 ---
 
-## 开发指南
+<h2 id="guide">开发指南</h2>
 
 ### 本地开发环境
 
@@ -997,7 +972,7 @@ docker push qc0624/emby-stats:latest
 
 ---
 
-## 版本发布流程
+<h2 id="release">版本发布流程</h2>
 
 ### 1. 更新版本号
 
@@ -1033,7 +1008,7 @@ git push origin main
 
 ---
 
-## 版本更新历史
+<h2 id="changelog">版本更新历史</h2>
 
 ### v2.32.5 (2025-12-18) - 🧩 页面结构组件提取
 
@@ -1154,7 +1129,7 @@ git push origin main
 
 ---
 
-## 性能优化
+<h2 id="performance">性能优化</h2>
 
 ### 数据库索引优化
 
@@ -1378,7 +1353,7 @@ python tools/add_playback_indexes.py /data/playback_reporting.db
 ```
 
 ---
-## 常见问题
+<h2 id="faq">常见问题</h2>
 
 ### Q: 如何修改饼图布局？
 
@@ -1408,7 +1383,7 @@ v2.27.12+ 已修复。早期版本中，由于根路径 `/` 会被所有路由�
 
 ---
 
-## 故障排除
+<h2 id="troubleshooting">故障排除</h2>
 
 | 问题 | 可能原因 | 解决方案 |
 |------|---------|---------|
