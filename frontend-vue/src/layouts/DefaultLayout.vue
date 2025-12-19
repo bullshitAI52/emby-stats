@@ -12,10 +12,12 @@
         <!-- Logo Header -->
         <div class="sidebar-header pa-4">
           <div class="logo-container">
-            <div class="logo-mark">ES</div>
+            <div class="logo-mark">
+              <LogoMark class="logo-mark-icon" :size="20" title="Emby Stats" />
+            </div>
             <div class="logo-info">
               <span class="logo-title">Emby Stats</span>
-              <v-chip size="x-small" color="primary">v2.27.0</v-chip>
+              <v-chip size="x-small" color="primary">v2.32.17</v-chip>
             </div>
           </div>
         </div>
@@ -28,6 +30,7 @@
             :to="item.to"
             :prepend-icon="item.icon"
             :title="item.title"
+            :active="isActiveRoute(item.to)"
             rounded="lg"
           />
         </v-list>
@@ -76,19 +79,6 @@
             />
           </v-btn>
 
-          <!-- 主题切换 -->
-          <v-btn
-            variant="text"
-            block
-            @click="toggleTheme"
-            class="mb-2"
-          >
-            <template #prepend>
-              <v-icon :icon="isDark ? 'mdi-white-balance-sunny' : 'mdi-moon-waning-crescent'" />
-            </template>
-            {{ isDark ? '浅色模式' : '深色模式' }}
-          </v-btn>
-
           <!-- 名称映射按钮 -->
           <v-btn
             variant="text"
@@ -100,6 +90,19 @@
               <v-icon icon="mdi-tag-text" />
             </template>
             名称映射
+          </v-btn>
+
+          <!-- 主题切换 -->
+          <v-btn
+            variant="text"
+            block
+            @click="toggleTheme"
+            class="mb-2"
+          >
+            <template #prepend>
+              <v-icon :icon="isDark ? 'mdi-white-balance-sunny' : 'mdi-moon-waning-crescent'" />
+            </template>
+            {{ isDark ? '浅色模式' : '深色模式' }}
           </v-btn>
 
           <!-- 登出按钮 -->
@@ -129,7 +132,9 @@
       <v-app-bar-nav-icon @click="drawer = true" />
       <v-app-bar-title>
         <div class="mobile-logo-container">
-          <div class="logo-mark small">ES</div>
+          <div class="logo-mark small">
+            <LogoMark class="logo-mark-icon" :size="18" title="Emby Stats" />
+          </div>
           <span class="ml-2 font-weight-medium">Emby Stats</span>
         </div>
       </v-app-bar-title>
@@ -175,10 +180,12 @@
       <div class="sidebar-content">
         <div class="sidebar-header pa-4">
           <div class="logo-container">
-            <div class="logo-mark">ES</div>
+            <div class="logo-mark">
+              <LogoMark class="logo-mark-icon" :size="20" title="Emby Stats" />
+            </div>
             <div class="logo-info">
               <span class="logo-title">Emby Stats</span>
-              <v-chip size="x-small" color="primary">v2.27.0</v-chip>
+              <v-chip size="x-small" color="primary">v2.32.17</v-chip>
             </div>
           </div>
         </div>
@@ -190,6 +197,7 @@
             :to="item.to"
             :prepend-icon="item.icon"
             :title="item.title"
+            :active="isActiveRoute(item.to)"
             rounded="lg"
             @click="drawer = false"
           />
@@ -218,18 +226,26 @@
             </template>
           </v-select>
 
+          <!-- 筛选按钮 -->
           <v-btn
             variant="text"
             block
-            @click="toggleTheme"
+            @click="openFilter(); drawer = false"
             class="mb-2"
           >
             <template #prepend>
-              <v-icon :icon="isDark ? 'mdi-white-balance-sunny' : 'mdi-moon-waning-crescent'" />
+              <v-icon icon="mdi-filter-outline" />
             </template>
-            {{ isDark ? '浅色模式' : '深色模式' }}
+            筛选器
+            <v-badge
+              v-if="filterStore.hasActiveFilters"
+              :content="filterStore.activeFilterCount"
+              color="primary"
+              inline
+              class="ml-2"
+            />
           </v-btn>
-          <!-- 名称映射按钮 -->
+
           <v-btn
             variant="text"
             block
@@ -240,6 +256,18 @@
               <v-icon icon="mdi-tag-text" />
             </template>
             名称映射
+          </v-btn>
+
+          <v-btn
+            variant="text"
+            block
+            @click="toggleTheme"
+            class="mb-2"
+          >
+            <template #prepend>
+              <v-icon :icon="isDark ? 'mdi-white-balance-sunny' : 'mdi-moon-waning-crescent'" />
+            </template>
+            {{ isDark ? '浅色模式' : '深色模式' }}
           </v-btn>
           <v-btn
             variant="text"
@@ -262,7 +290,11 @@
 
     <!-- 主内容区 -->
     <v-main>
-      <router-view />
+      <router-view v-slot="{ Component }">
+        <transition name="page-fade" mode="out-in">
+          <component :is="Component" />
+        </transition>
+      </router-view>
     </v-main>
 
     <!-- 筛选面板 -->
@@ -286,15 +318,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useDisplay, useTheme } from 'vuetify'
 import { useAuthStore, useServerStore, useFilterStore } from '@/stores'
 import FilterPanel from '@/components/FilterPanel.vue'
 import ServerManagementPanel from '@/components/ServerManagementPanel.vue'
 import NameMappingPanel from '@/components/NameMappingPanel.vue'
+import LogoMark from '@/components/ui/LogoMark.vue'
 
 const router = useRouter()
+const route = useRoute()
 const { mobile } = useDisplay()
 const theme = useTheme()
 const authStore = useAuthStore()
@@ -302,6 +336,15 @@ const serverStore = useServerStore()
 const filterStore = useFilterStore()
 
 const drawer = ref(!mobile.value)
+
+// 初始化：确保服务器列表已加载
+onMounted(async () => {
+  // 如果服务器列表为空，需要重新获取
+  if (serverStore.servers.length === 0) {
+    await serverStore.fetchServers()
+  }
+})
+
 const showFilter = ref(false)
 const showServerManagement = ref(false)
 const showNameMapping = ref(false)
@@ -322,6 +365,7 @@ const menuItems = [
   { to: '/history', icon: 'mdi-history', title: '播放历史' },
   { to: '/favorites', icon: 'mdi-star', title: '收藏统计' },
   { to: '/report', icon: 'mdi-file-document', title: '报告配置' },
+  { to: '/tools', icon: 'mdi-tools', title: '工具箱' },
 ]
 
 // 服务器选项
@@ -338,10 +382,15 @@ function openFilter() {
   showFilter.value = true
 }
 
-// 打开名称映射面板（关闭筛选器）
+// 打开名称映射面板(关闭筛选器)
 function openNameMapping() {
   showFilter.value = false
   showNameMapping.value = true
+}
+
+// 判断路由是否激活（精确匹配）
+function isActiveRoute(to: string): boolean {
+  return route.path === to
 }
 
 // 处理退出登录
@@ -388,12 +437,12 @@ async function handleLogout() {
 .logo-mark {
   width: 36px;
   height: 36px;
-  background: rgb(var(--v-theme-primary));
+  background: linear-gradient(135deg, #93c5fd 0%, rgb(var(--v-theme-primary)) 55%, #1d4ed8 100%);
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  color: #0b1220;
   font-weight: 700;
   font-size: 13px;
   flex-shrink: 0;
@@ -403,6 +452,10 @@ async function handleLogout() {
   width: 32px;
   height: 32px;
   font-size: 11px;
+}
+
+.logo-mark :deep(.logo-mark-icon) {
+  display: block;
 }
 
 .logo-info {

@@ -7,6 +7,9 @@ import aiosqlite
 from typing import Optional
 from config import settings
 from database import convert_guid_bytes_to_standard, get_users_db
+from logger import get_logger
+
+logger = get_logger("services.users")
 
 
 class UserService:
@@ -33,10 +36,11 @@ class UserService:
                             else:
                                 data = json.loads(data_bytes)
                             user_map[guid] = data.get("Name", "Unknown")
-                        except:
+                        except (json.JSONDecodeError, KeyError, ValueError, UnicodeDecodeError):
+                            # 单条用户数据解析失败，跳过继续处理其他用户
                             continue
         except Exception as e:
-            print(f"Error loading users: {e}")
+            logger.error(f"Error loading users: {e}")
         return user_map
 
     def match_username(self, user_id: str, user_map: dict[str, str]) -> str:

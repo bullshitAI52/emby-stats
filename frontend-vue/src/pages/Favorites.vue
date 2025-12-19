@@ -1,27 +1,15 @@
 <template>
   <div class="page">
-    <!-- 页面标题 -->
-    <div class="page-header">
-      <div>
-        <h2 class="page-title">收藏统计</h2>
-        <p class="page-subtitle">查看用户收藏的内容和热门排行</p>
-      </div>
-    </div>
+    <PageHeader title="收藏统计" subtitle="查看用户收藏的内容和热门排行" />
 
-    <!-- 加载状态 -->
-    <template v-if="loading">
-      <v-row class="mb-6">
-        <v-col v-for="i in 3" :key="i" cols="12" sm="4">
-          <v-card><v-skeleton-loader type="article" /></v-card>
-        </v-col>
-      </v-row>
-      <v-card><v-skeleton-loader type="table" /></v-card>
-    </template>
+    <v-fade-transition mode="out-in">
+      <!-- 加载状态 -->
+      <LoadingState v-if="loading" preset="stats-table" />
 
-    <!-- 数据展示 -->
-    <template v-else-if="favoritesData">
-      <!-- 统计卡片 -->
-      <v-row class="mb-6">
+      <!-- 数据展示 -->
+      <div v-else-if="favoritesData">
+        <!-- 统计卡片 -->
+        <v-row class="mb-6">
         <v-col cols="12" sm="6" md="4">
           <v-card class="pulse-card" hover>
             <v-card-text>
@@ -308,77 +296,62 @@
           </template>
         </v-card-text>
       </v-card>
-    </template>
+    </div>
 
-    <!-- 空状态 -->
-    <v-row v-else>
-      <v-col cols="12">
-        <v-alert type="info" variant="tonal">
-          暂无收藏数据
-        </v-alert>
-      </v-col>
-    </v-row>
+      <!-- 空状态 -->
+      <EmptyState v-else message="暂无收藏数据" />
+    </v-fade-transition>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { Avatar, AnimatedNumber } from '@/components/ui'
+import { Avatar, AnimatedNumber, PageHeader, LoadingState, EmptyState } from '@/components/ui'
 import { useServerStore, useFilterStore } from '@/stores'
+import { useDataFetch } from '@/composables/useDataFetch'
+import { usePosterUrl } from '@/composables'
 import { statsApi } from '@/services'
+import type { UserFavoriteItem, UserFavorites, FavoriteItem, FavoritesData } from '@/types'
 
 const router = useRouter()
 const serverStore = useServerStore()
 const filterStore = useFilterStore()
+const { buildPosterUrl } = usePosterUrl()
 
-const loading = ref(false)
 const viewMode = ref<'users' | 'ranking'>('users')
 const filterType = ref<'all' | 'Movie' | 'Series'>('all')
 const searchQuery = ref('')
 const expandedUsers = ref<string[]>([])
 const expandedItems = ref<string[]>([])
 
-interface FavoriteItem {
-  item_id: string
-  name: string
-  type: string
-  year?: string
-  has_poster: boolean
+// 扩展类型：添加处理后的海报 URL
+interface ProcessedFavoriteItem extends UserFavoriteItem {
   poster_url?: string
-  series_id?: string
-  series_name?: string
 }
 
-interface UserFavorite {
+interface ProcessedUserFavorite {
   user_id: string
   username: string
   favorite_count: number
-  favorites: FavoriteItem[]
+  favorites: ProcessedFavoriteItem[]
   movie_count: number
   series_count: number
-  preview_items: FavoriteItem[]
+  preview_items: ProcessedFavoriteItem[]
 }
 
-interface RankingItem {
-  item_id: string
-  name: string
-  type: string
-  favorite_count: number
-  has_poster: boolean
+interface ProcessedRankingItem extends FavoriteItem {
   poster_url?: string
-  series_id?: string
-  users: Array<{ user_id: string; username: string }>
 }
 
-interface FavoritesData {
-  users_favorites: UserFavorite[]
-  items: RankingItem[]
+interface ProcessedFavoritesData {
+  users_favorites: ProcessedUserFavorite[]
+  items: ProcessedRankingItem[]
   total_users: number
   users_with_favorites: number
 }
 
-const favoritesData = ref<FavoritesData | null>(null)
+const favoritesData = ref<ProcessedFavoritesData | null>(null)
 
 // 统计数据
 const totalFavoriteItems = computed(() => favoritesData.value?.items.length || 0)
@@ -465,7 +438,7 @@ function getRankClass(rank: number) {
 }
 
 // 跳转到详情页
-function goToDetail(item: FavoriteItem) {
+function goToDetail(item: ProcessedFavoriteItem) {
   // 对于剧集，使用 series_id；对于其他类型，使用 item_id
   if (item.type === 'Series') {
     router.push({
@@ -478,50 +451,39 @@ function goToDetail(item: FavoriteItem) {
   }
 }
 
-// 获取收藏数据
-async function fetchFavoritesData() {
-  if (!serverStore.currentServer) return
-
-  loading.value = true
-  try {
+// 使用 useDataFetch 处理数据获取
+const { loading } = useDataFetch(
+  async () => {
     const params = {
-      server_id: serverStore.currentServer.id,
+      server_id: serverStore.currentServer!.id,
       ...filterStore.buildQueryParams,
     }
 
     const response = await statsApi.getFavorites(params)
-    const data = response.data
+    const data = response.data as FavoritesData
 
-    // 处理用户收藏数据
-    const usersFavorites = (data.users_favorites || []).map((uf: any) => ({
-      user_id: uf.user_id,
-      username: uf.username,
-      favorite_count: uf.favorites?.length || 0,
-      favorites: (uf.favorites || []).map((f: any) => ({
-        item_id: f.item_id,
-        name: f.name,
-        type: f.type,
-        year: f.year,
-        has_poster: f.has_poster,
-        poster_url: f.has_poster ? `/api/poster/${f.series_id || f.item_id}?maxHeight=720&maxWidth=480&server_id=${serverStore.currentServer?.id}` : undefined,
-        series_id: f.series_id,
-        series_name: f.series_name,
-      })),
-      movie_count: 0,
-      series_count: 0,
-      preview_items: []
-    }))
+    // 处理用户收藏数据 - 使用 buildPosterUrl 并计算统计
+    const usersFavorites: ProcessedUserFavorite[] = (data.users_favorites || []).map((uf: UserFavorites) => {
+      const processedFavorites: ProcessedFavoriteItem[] = (uf.favorites || []).map((f: UserFavoriteItem) => ({
+        ...f,
+        poster_url: f.has_poster ? buildPosterUrl(f.series_id || f.item_id, 'large') : undefined,
+      }))
 
-    // 处理排行榜数据
-    const items = (data.items || []).map((item: any) => ({
-      item_id: item.item_id,
-      name: item.name,
-      type: item.type,
-      favorite_count: item.favorite_count,
-      has_poster: item.has_poster,
-      poster_url: item.has_poster ? `/api/poster/${item.series_id || item.item_id}?maxHeight=256&maxWidth=192&server_id=${serverStore.currentServer?.id}` : undefined,
-      series_id: item.series_id,
-      users: item.users || []
+      return {
+        user_id: uf.user_id,
+        username: uf.username,
+        favorite_count: uf.favorite_count,
+        favorites: processedFavorites,
+        movie_count: processedFavorites.filter(f => f.type === 'Movie').length,
+        series_count: processedFavorites.filter(f => f.type === 'Series').length,
+        preview_items: processedFavorites.slice(0, 5),
+      }
+    })
+
+    // 处理排行榜数据 - 使用 buildPosterUrl
+    const items: ProcessedRankingItem[] = (data.items || []).map((item: FavoriteItem) => ({
+      ...item,
+      poster_url: item.has_poster ? buildPosterUrl(item.series_id || item.item_id, 'medium') : undefined,
     }))
 
     favoritesData.value = {
@@ -530,113 +492,15 @@ async function fetchFavoritesData() {
       total_users: data.total_users || 0,
       users_with_favorites: data.users_with_favorites || 0
     }
-  } catch (error) {
-    console.error('Failed to fetch favorites data:', error)
-  } finally {
-    loading.value = false
-  }
-}
-
-// 监听服务器和筛选器变化
-watch(
-  () => [serverStore.currentServer?.id, filterStore.buildQueryParams],
-  () => {
-    fetchFavoritesData()
   },
-  { deep: true }
+  {
+    immediate: true,
+    watchFilter: true,
+  }
 )
-
-onMounted(() => {
-  fetchFavoritesData()
-})
 </script>
 
 <style scoped>
-.page {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 24px;
-  animation: fadeIn 0.4s ease;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-}
-
-.page-title {
-  font-size: 24px;
-  font-weight: 700;
-  margin: 0 0 4px 0;
-}
-
-.page-subtitle {
-  font-size: 14px;
-  opacity: 0.7;
-  margin: 0;
-}
-
-.pulse-card {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.pulse-card:hover {
-  transform: translateY(-6px) scale(1.02);
-}
-
-.v-theme--dark .pulse-card {
-  border: 1px solid rgba(59, 130, 246, 0.15);
-}
-
-.v-theme--dark .pulse-card:hover {
-  border-color: rgba(59, 130, 246, 0.35);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6) !important;
-}
-
-.stat-content {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.stat-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.stat-info {
-  flex: 1;
-}
-
-.stat-label {
-  font-size: 13px;
-  opacity: 0.7;
-  margin-bottom: 4px;
-}
-
-.stat-value {
-  font-size: 24px;
-  font-weight: 700;
-}
-
 /* 海报预览样式 */
 .preview-poster {
   width: 32px;
@@ -725,25 +589,6 @@ onMounted(() => {
 }
 
 /* 排行榜样式 */
-.rank-badge {
-  width: 32px;
-  text-align: center;
-  font-weight: 700;
-  font-size: 14px;
-}
-
-.rank-gold {
-  color: #fbbf24;
-}
-
-.rank-silver {
-  color: #9ca3af;
-}
-
-.rank-bronze {
-  color: #f59e0b;
-}
-
 .ranking-poster {
   width: 48px;
   height: 64px;
@@ -764,10 +609,6 @@ onMounted(() => {
 @media (max-width: 768px) {
   .page {
     padding: 16px;
-  }
-
-  .stat-value {
-    font-size: 20px;
   }
 }
 </style>

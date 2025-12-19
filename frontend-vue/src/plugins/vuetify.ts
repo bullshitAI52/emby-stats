@@ -8,10 +8,10 @@ import '@mdi/font/css/materialdesignicons.css'
 const lightTheme = {
   dark: false,
   colors: {
-    background: '#fafafa',
+    background: '#f2f4f7',      // 优化：更深的灰调背景，增加对比度
     surface: '#ffffff',
-    'surface-variant': '#f4f4f5',
-    'on-surface-variant': '#71717a',
+    'surface-variant': '#f1f5f9',
+    'on-surface-variant': '#64748b',
     primary: '#1d4ed8',
     'primary-darken-1': '#1e40af',
     secondary: '#3b82f6',

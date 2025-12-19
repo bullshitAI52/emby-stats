@@ -1,6 +1,6 @@
 <template>
   <v-card
-    :class="cardClass"
+    :class="[cardClass, animate ? 'animate-ceramic hover-lift' : '']"
     :elevation="elevation"
     :loading="loading"
     v-bind="$attrs"
@@ -42,12 +42,14 @@ interface Props {
   loading?: boolean
   elevation?: number | string
   noPadding?: boolean
+  animate?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   elevation: 2,
   loading: false,
   noPadding: false,
+  animate: true,
 })
 
 const cardClass = computed(() => ({

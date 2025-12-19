@@ -5,39 +5,45 @@
 import aiosqlite
 from typing import Optional
 from config import settings
+from db_pool import pool_manager
 
 
 def get_playback_db(server_config: Optional[dict] = None):
-    """获取播放记录数据库连接"""
+    """获取播放记录数据库连接（使用连接池）"""
     if server_config:
-        return aiosqlite.connect(server_config.get('playback_db', settings.PLAYBACK_DB))
-    return aiosqlite.connect(settings.PLAYBACK_DB)
+        db_path = server_config.get('playback_db', settings.PLAYBACK_DB)
+    else:
+        db_path = settings.PLAYBACK_DB
+    return pool_manager.connection(db_path, pool_size=5)
 
 
 def get_users_db(server_config: Optional[dict] = None):
-    """获取用户数据库连接"""
+    """获取用户数据库连接（使用连接池）"""
     if server_config:
-        return aiosqlite.connect(server_config.get('users_db', settings.USERS_DB))
-    return aiosqlite.connect(settings.USERS_DB)
+        db_path = server_config.get('users_db', settings.USERS_DB)
+    else:
+        db_path = settings.USERS_DB
+    return pool_manager.connection(db_path, pool_size=3)
 
 
 def get_auth_db(server_config: Optional[dict] = None):
-    """获取认证数据库连接"""
+    """获取认证数据库连接（使用连接池）"""
     if server_config:
-        return aiosqlite.connect(server_config.get('auth_db', settings.AUTH_DB))
-    return aiosqlite.connect(settings.AUTH_DB)
+        db_path = server_config.get('auth_db', settings.AUTH_DB)
+    else:
+        db_path = settings.AUTH_DB
+    return pool_manager.connection(db_path, pool_size=2)
 
 
 def get_library_db(server_config: Optional[dict] = None):
-    """获取媒体库数据库连接"""
+    """获取媒体库数据库连接（使用连接池）"""
     # library.db 通常和 users.db 在同一目录
     if server_config:
         users_db = server_config.get('users_db', settings.USERS_DB)
         library_db = users_db.replace('users.db', 'library.db')
-        return aiosqlite.connect(library_db)
-
-    library_db = settings.USERS_DB.replace('users.db', 'library.db')
-    return aiosqlite.connect(library_db)
+    else:
+        library_db = settings.USERS_DB.replace('users.db', 'library.db')
+    return pool_manager.connection(library_db, pool_size=3)
 
 
 

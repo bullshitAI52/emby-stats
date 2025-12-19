@@ -21,79 +21,80 @@ import type {
   TgBindingUser,
   TgBindingsResponse,
   NameMappings,
+  StatsQueryParams,
 } from '@/types'
 
 export const statsApi = {
   /**
    * 获取总览统计数据
    */
-  getOverview: (params: Record<string, any>) =>
+  getOverview: (params: StatsQueryParams) =>
     axios.get<OverviewData>('/overview', { params }),
 
   /**
    * 获取趋势数据
    */
-  getTrend: (params: Record<string, any>) =>
+  getTrend: (params: StatsQueryParams) =>
     axios.get<TrendData>('/trend', { params }),
 
   /**
    * 获取按小时统计数据（热力图）
    */
-  getHourly: (params: Record<string, any>) =>
+  getHourly: (params: StatsQueryParams) =>
     axios.get<HourlyData>('/hourly', { params }),
 
   /**
    * 获取热门内容
    */
-  getTopContent: (params: Record<string, any>) =>
-    axios.get<{ top_content: any[] }>('/top-content', { params }),
+  getTopContent: (params: StatsQueryParams) =>
+    axios.get<TopContentData>('/top-content', { params }),
 
   /**
    * 获取热门剧集
    */
-  getTopShows: (params: Record<string, any>) =>
-    axios.get<{ top_shows: any[] }>('/top-shows', { params }),
+  getTopShows: (params: StatsQueryParams) =>
+    axios.get<TopShowsData>('/top-shows', { params }),
 
   /**
    * 获取用户统计数据
    */
-  getUsers: (params: Record<string, any>) =>
+  getUsers: (params: StatsQueryParams) =>
     axios.get<UsersData>('/users', { params }),
 
   /**
    * 获取客户端统计数据
    */
-  getClients: (params: Record<string, any>) =>
+  getClients: (params: StatsQueryParams) =>
     axios.get<ClientsData>('/clients', { params }),
 
   /**
    * 获取播放方式统计数据
    */
-  getPlaybackMethods: (params: Record<string, any>) =>
+  getPlaybackMethods: (params: StatsQueryParams) =>
     axios.get<PlaybackMethodsData>('/playback-methods', { params }),
 
   /**
    * 获取设备统计数据
    */
-  getDevices: (params: Record<string, any>) =>
+  getDevices: (params: StatsQueryParams) =>
     axios.get<DevicesData>('/devices', { params }),
 
   /**
    * 获取最近播放记录
    */
-  getRecent: (params: Record<string, any>) =>
+  getRecent: (params: StatsQueryParams) =>
     axios.get<RecentData>('/recent', { params }),
 
   /**
    * 获取正在播放的内容
    */
-  getNowPlaying: (params: Record<string, any>) =>
+  getNowPlaying: (params: StatsQueryParams) =>
     axios.get<NowPlayingData>('/now-playing', { params }),
 
   /**
    * 获取内容详情
    */
-  getContentDetail: (params: Record<string, any>) =>
+  getContentDetail: (params: StatsQueryParams & { item_id: string }) =>
     axios.get<ContentDetailData>('/content-detail', { params }),
 
   /**
@@ -107,7 +108,7 @@ export const statsApi = {
   /**
    * 获取收藏统计数据
    */
-  getFavorites: (params: Record<string, any>) =>
+  getFavorites: (params: StatsQueryParams) =>
     axios.get<FavoritesData>('/favorites', { params }),
 }
 
@@ -187,7 +188,7 @@ export const reportApi = {
    * 预览报告
    */
   previewReport: (serverId: string, period: string, userId?: string) => {
-    const params: Record<string, any> = { server_id: serverId, period }
+    const params: { server_id: string; period: string; user_id?: string } = { server_id: serverId, period }
     if (userId) params.user_id = userId
     return axios.get('/report/preview', { params, responseType: 'blob' })
   },
@@ -196,7 +197,7 @@ export const reportApi = {
    * 手动发送报告
    */
   sendReport: (serverId: string, period: string, userId?: string) => {
-    const params: Record<string, any> = { server_id: serverId, period }
+    const params: { server_id: string; period: string; user_id?: string } = { server_id: serverId, period }
     if (userId) params.user_id = userId
     return axios.post('/report/send', null, { params })
   },

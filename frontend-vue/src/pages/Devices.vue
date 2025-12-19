@@ -1,190 +1,131 @@
 <template>
   <div class="page">
-    <!-- 页面标题 -->
-    <div class="page-header">
-      <div>
-        <h2 class="page-title">设备统计</h2>
-        <p class="page-subtitle">
-          了解客户端和设备的使用情况
-        </p>
+    <PageHeader title="设备统计" subtitle="了解客户端和设备的使用情况" />
+
+    <v-fade-transition mode="out-in">
+      <!-- 骨架屏加载 -->
+      <LoadingState v-if="loading" preset="dual-chart-dual-table" />
+
+      <!-- 数据展示 -->
+      <div v-else-if="devicesData">
+        <!-- 客户端和设备分布图表 -->
+        <v-row class="mb-6">
+          <v-col cols="12" md="6">
+            <v-card v-reveal data-delay="100" hover>
+              <v-card-title class="card-header">
+                <span>客户端分布</span>
+                <v-icon>mdi-application</v-icon>
+              </v-card-title>
+              <v-card-text>
+                <PieChart :data="clientsChartData" />
+              </v-card-text>
+            </v-card>
+          </v-col>
+
+          <v-col cols="12" md="6">
+            <v-card v-reveal data-delay="200" hover>
+              <v-card-title class="card-header">
+                <span>设备分布</span>
+                <v-icon>mdi-monitor</v-icon>
+              </v-card-title>
+              <v-card-text>
+                <PieChart :data="devicesChartData" />
+              </v-card-text>
+            </v-card>
+          </v-col>
+        </v-row>
+
+        <!-- 客户端详细表格 -->
+        <v-row class="mb-6">
+          <v-col cols="12">
+            <v-card v-reveal data-delay="300" hover>
+              <v-card-title class="card-header">
+                <span>客户端详情</span>
+                <v-icon>mdi-view-list</v-icon>
+              </v-card-title>
+              <v-card-text>
+                <DataTable
+                  :columns="clientColumns"
+                  :data="devicesData.clients"
+                  item-key="client"
+                  mobile-icon="mdi-application"
+                >
+                  <!-- 自定义客户端列 -->
+                  <template #cell-client="{ item }">
+                    <div class="d-flex align-center">
+                      <v-icon icon="mdi-application" class="mr-2" />
+                      {{ item.client }}
+                    </div>
+                  </template>
+
+                  <!-- 移动端标题 -->
+                  <template #mobile-title="{ item }">
+                    {{ item.client }}
+                  </template>
+
+                  <!-- 移动端副标题 -->
+                  <template #mobile-subtitle="{ item }">
+                    观看次数: {{ formatNumber((item as Record<string, unknown>).play_count as number) }}
+                  </template>
+                </DataTable>
+              </v-card-text>
+            </v-card>
+          </v-col>
+        </v-row>
+
+        <!-- 设备详细表格 -->
+        <v-row>
+          <v-col cols="12">
+            <v-card v-reveal data-delay="400" hover>
+              <v-card-title class="card-header">
+                <span>设备详情</span>
+                <v-icon>mdi-view-list</v-icon>
+              </v-card-title>
+              <v-card-text>
+                <DataTable
+                  :columns="deviceColumns"
+                  :data="devicesData.devices"
+                  item-key="device"
+                  mobile-icon="mdi-monitor"
+                >
+                  <!-- 自定义设备列 -->
+                  <template #cell-device="{ item }">
+                    <div class="d-flex align-center">
+                      <v-icon icon="mdi-monitor" class="mr-2" />
+                      {{ item.device }}
+                    </div>
+                  </template>
+
+                  <!-- 移动端标题 -->
+                  <template #mobile-title="{ item }">
+                    {{ item.device }}
+                  </template>
+
+                  <!-- 移动端副标题 -->
+                  <template #mobile-subtitle="{ item }">
+                    观看次数: {{ formatNumber((item as Record<string, unknown>).play_count as number) }}
+                  </template>
+                </DataTable>
+              </v-card-text>
+            </v-card>
+          </v-col>
+        </v-row>
       </div>
-    </div>
 
-    <!-- 骨架屏加载 -->
-    <template v-if="loading">
-      <v-row class="mb-6">
-        <v-col cols="12" md="6">
-          <v-card><v-skeleton-loader type="article" /></v-card>
-        </v-col>
-        <v-col cols="12" md="6">
-          <v-card><v-skeleton-loader type="article" /></v-card>
-        </v-col>
-      </v-row>
-      <v-row class="mb-6">
-        <v-col cols="12">
-          <v-card><v-skeleton-loader type="table" /></v-card>
-        </v-col>
-      </v-row>
-      <v-card><v-skeleton-loader type="table" /></v-card>
-    </template>
-
-    <!-- 数据展示 -->
-    <template v-else-if="devicesData">
-      <!-- 客户端和设备分布图表 -->
-      <v-row class="mb-6">
-        <v-col cols="12" md="6">
-          <v-card hover>
-            <v-card-title class="card-header">
-              <span>客户端分布</span>
-              <v-icon>mdi-application</v-icon>
-            </v-card-title>
-            <v-card-text>
-              <PieChart :data="clientsChartData" />
-            </v-card-text>
-          </v-card>
-        </v-col>
-
-        <v-col cols="12" md="6">
-          <v-card hover>
-            <v-card-title class="card-header">
-              <span>设备分布</span>
-              <v-icon>mdi-monitor</v-icon>
-            </v-card-title>
-            <v-card-text>
-              <PieChart :data="devicesChartData" />
-            </v-card-text>
-          </v-card>
-        </v-col>
-      </v-row>
-
-      <!-- 客户端详细表格 -->
-      <v-row class="mb-6">
-        <v-col cols="12">
-          <v-card hover>
-            <v-card-title class="card-header">
-              <span>客户端详情</span>
-              <v-icon>mdi-view-list</v-icon>
-            </v-card-title>
-            <v-card-text>
-              <!-- 桌面端表格 -->
-              <v-table v-if="!mobile" density="comfortable">
-                <thead>
-                  <tr>
-                    <th>客户端</th>
-                    <th class="text-right">观看次数</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="client in devicesData.clients" :key="client.client">
-                    <td>
-                      <div class="d-flex align-center">
-                        <v-icon icon="mdi-application" class="mr-2" />
-                        {{ client.client }}
-                      </div>
-                    </td>
-                    <td class="text-right">{{ formatNumber(client.play_count) }}</td>
-                  </tr>
-                </tbody>
-              </v-table>
-
-              <!-- 移动端卡片列表 -->
-              <v-list v-else>
-                <v-list-item
-                  v-for="client in devicesData.clients"
-                  :key="client.client"
-                  class="mb-2"
-                >
-                  <template #prepend>
-                    <v-icon icon="mdi-application" size="32" class="mr-3" />
-                  </template>
-                  <v-list-item-title class="font-weight-medium">
-                    {{ client.client }}
-                  </v-list-item-title>
-                  <v-list-item-subtitle>
-                    观看次数: {{ formatNumber(client.play_count) }}
-                  </v-list-item-subtitle>
-                </v-list-item>
-              </v-list>
-            </v-card-text>
-          </v-card>
-        </v-col>
-      </v-row>
-
-      <!-- 设备详细表格 -->
-      <v-row>
-        <v-col cols="12">
-          <v-card hover>
-            <v-card-title class="card-header">
-              <span>设备详情</span>
-              <v-icon>mdi-view-list</v-icon>
-            </v-card-title>
-            <v-card-text>
-              <!-- 桌面端表格 -->
-              <v-table v-if="!mobile" density="comfortable">
-                <thead>
-                  <tr>
-                    <th>设备</th>
-                    <th class="text-right">观看次数</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="device in devicesData.devices" :key="device.device">
-                    <td>
-                      <div class="d-flex align-center">
-                        <v-icon icon="mdi-monitor" class="mr-2" />
-                        {{ device.device }}
-                      </div>
-                    </td>
-                    <td class="text-right">{{ formatNumber(device.play_count) }}</td>
-                  </tr>
-                </tbody>
-              </v-table>
-
-              <!-- 移动端卡片列表 -->
-              <v-list v-else>
-                <v-list-item
-                  v-for="device in devicesData.devices"
-                  :key="device.device"
-                  class="mb-2"
-                >
-                  <template #prepend>
-                    <v-icon icon="mdi-monitor" size="32" class="mr-3" />
-                  </template>
-                  <v-list-item-title class="font-weight-medium">
-                    {{ device.device }}
-                  </v-list-item-title>
-                  <v-list-item-subtitle>
-                    观看次数: {{ formatNumber(device.play_count) }}
-                  </v-list-item-subtitle>
-                </v-list-item>
-              </v-list>
-            </v-card-text>
-          </v-card>
-        </v-col>
-      </v-row>
-    </template>
-
-    <!-- 空状态 -->
-    <v-row v-else>
-      <v-col cols="12">
-        <v-alert type="info" variant="tonal">
-          暂无设备统计数据
-        </v-alert>
-      </v-col>
-    </v-row>
+      <!-- 空状态 -->
+      <EmptyState v-else message="暂无设备统计数据" />
+    </v-fade-transition>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
-import { useDisplay } from 'vuetify'
-import { Card } from '@/components/ui'
+import { ref, computed } from 'vue'
+import { Card, DataTable, PageHeader, LoadingState, EmptyState, type Column } from '@/components/ui'
 import { PieChart } from '@/components/charts'
 import { useServerStore, useFilterStore } from '@/stores'
+import { useDataFetch } from '@/composables/useDataFetch'
 import { statsApi } from '@/services'
 import { formatDuration, formatNumber, formatPercentage } from '@/utils'
-
-const { mobile } = useDisplay()
 
 // 自定义类型
 interface ClientData {
@@ -209,8 +150,18 @@ interface DevicesData {
 const serverStore = useServerStore()
 const filterStore = useFilterStore()
 
-const loading = ref(false)
 const devicesData = ref<DevicesData | null>(null)
+
+// 表格列定义
+const clientColumns: Column[] = [
+  { key: 'client', label: '客户端' },
+  { key: 'play_count', label: '观看次数', align: 'right', format: (v) => formatNumber(v as number) },
+]
+
+const deviceColumns: Column[] = [
+  { key: 'device', label: '设备' },
+  { key: 'play_count', label: '观看次数', align: 'right', format: (v) => formatNumber(v as number) },
+]
 
 // 客户端图表数据
 const clientsChartData = computed(() => {
@@ -232,56 +183,30 @@ const devicesChartData = computed(() => {
   }))
 })
 
-// 获取设备统计数据
-async function fetchDevicesData() {
-  if (!serverStore.currentServer) return
+// 使用 useDataFetch 处理数据获取
+const { loading } = useDataFetch(
+  async () => {
+    const params = {
+      server_id: serverStore.currentServer!.id,
+      ...filterStore.buildQueryParams,
+    }
 
-  loading.value = true
-  try {
+    // 并行加载客户端和设备数据
     const [clientsResponse, devicesResponse] = await Promise.all([
-      statsApi.getClients({
-        server_id: serverStore.currentServer.id,
-        ...filterStore.buildQueryParams,
-      }),
-      statsApi.getDevices({
-        server_id: serverStore.currentServer.id,
-        ...filterStore.buildQueryParams,
-      }),
+      statsApi.getClients(params),
+      statsApi.getDevices(params),
     ])
 
     devicesData.value = {
-      clients: (clientsResponse.data.clients || []).map((c: any) => ({
-        client: c.client,
-        play_count: c.play_count,
-        total_duration: c.total_duration,
-        percentage: c.percentage,
-      })),
-      devices: (devicesResponse.data.devices || []).map((d: any) => ({
-        device: d.device,
-        play_count: d.play_count,
-        total_duration: d.total_duration,
-        percentage: d.percentage,
-      })),
+      clients: clientsResponse.data.clients || [],
+      devices: devicesResponse.data.devices || [],
     }
-  } catch (error) {
-    console.error('Failed to fetch devices data:', error)
-  } finally {
-    loading.value = false
-  }
-}
-
-// 监听服务器和筛选器变化
-watch(
-  () => [serverStore.currentServer?.id, filterStore.buildQueryParams],
-  () => {
-    fetchDevicesData()
   },
-  { deep: true }
+  {
+    immediate: true,
+    watchFilter: true,
+  }
 )
-
-onMounted(() => {
-  fetchDevicesData()
-})
 </script>
 
 <style scoped>
@@ -289,31 +214,6 @@ onMounted(() => {
   max-width: 1400px;
   margin: 0 auto;
   padding: 24px;
-  animation: fadeIn 0.4s ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-}
-
-.page-title {
-  font-size: 24px;
-  font-weight: 700;
-  margin: 0 0 4px 0;
-}
-
-.page-subtitle {
-  font-size: 14px;
-  opacity: 0.7;
-  margin: 0;
 }
 
 .card-header {
@@ -333,12 +233,6 @@ onMounted(() => {
 @media (max-width: 768px) {
   .page {
     padding: 16px;
-  }
-
-  .page-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 16px;
   }
 }
 </style>

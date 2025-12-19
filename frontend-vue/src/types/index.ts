@@ -166,6 +166,8 @@ export interface RecentItem {
 
 export interface RecentData {
   recent: RecentItem[]
+  total_count?: number
+  total_duration_seconds?: number
 }
 
 export interface NowPlayingItem {
@@ -376,4 +378,25 @@ export interface TgBindingsResponse {
 export interface NameMappings {
   clients?: Record<string, string>
   devices?: Record<string, string>
+}
+
+// ========== API 查询参数 ==========
+
+/**
+ * 统计 API 通用查询参数
+ */
+export interface StatsQueryParams {
+  server_id?: string
+  days?: number
+  start_date?: string
+  end_date?: string
+  users?: string
+  clients?: string
+  devices?: string
+  item_types?: string
+  playback_methods?: string
+  limit?: number
+  offset?: number
+  search?: string
+  q?: string
 }

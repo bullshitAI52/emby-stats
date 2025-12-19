@@ -1,54 +1,66 @@
 <template>
   <div class="page">
-    <!-- 骨架屏加载 -->
-    <template v-if="loading">
-      <v-row class="mb-6">
-        <v-col cols="12" md="4">
-          <v-card><v-skeleton-loader type="image" /></v-card>
-        </v-col>
-        <v-col cols="12" md="8">
-          <v-card><v-skeleton-loader type="article" /></v-card>
-        </v-col>
-      </v-row>
-      <v-card><v-skeleton-loader type="table" /></v-card>
-    </template>
+    <v-fade-transition mode="out-in">
+      <!-- 骨架屏加载 -->
+      <LoadingState v-if="loading" key="loading">
+        <v-row class="mb-6">
+          <v-col cols="12" md="4">
+            <v-card><v-skeleton-loader type="image" /></v-card>
+          </v-col>
+          <v-col cols="12" md="8">
+            <v-card><v-skeleton-loader type="article" /></v-card>
+          </v-col>
+        </v-row>
+        <v-card><v-skeleton-loader type="table" /></v-card>
+      </LoadingState>
 
-    <!-- 数据展示 -->
-    <template v-else-if="contentDetail">
-      <!-- 页面标题和返回按钮 -->
-      <div class="page-header">
-        <div>
-          <div class="d-flex align-center mb-2">
-            <v-btn
-              icon="mdi-arrow-left"
-              variant="text"
-              size="small"
-              @click="goBack"
-            />
-            <h2 class="page-title ml-2">{{ contentDetail.show_name || contentDetail.item_name }}</h2>
+      <!-- 数据展示 -->
+      <div v-else-if="contentDetail" key="content">
+        <!-- 页面标题和返回按钮 -->
+        <div class="page-header">
+          <div>
+            <div class="d-flex align-center mb-2">
+              <v-btn
+                icon="mdi-arrow-left"
+                variant="text"
+                size="small"
+                @click="goBack"
+              />
+              <h2 class="page-title ml-2">{{ contentDetail.show_name || contentDetail.item_name }}</h2>
+            </div>
+            <p class="page-subtitle">
+              查看内容详细信息和播放记录
+            </p>
           </div>
-          <p class="page-subtitle">
-            查看内容详细信息和播放记录
-          </p>
         </div>
-      </div>
 
       <!-- 内容信息 -->
       <v-row class="mb-6">
         <v-col cols="12" md="4">
           <!-- 海报 -->
           <v-card hover>
-            <v-img
+            <LazyImage
               v-if="posterUrl"
               :src="posterUrl"
               aspect-ratio="0.67"
-              cover
-            />
-            <v-img
+              :cover="true"
+            >
+              <template #placeholder>
+                <div class="d-flex align-center justify-center fill-height">
+                  <v-progress-circular indeterminate color="primary" size="48" />
+                </div>
+              </template>
+              <template #error>
+                <div class="d-flex align-center justify-center fill-height">
+                  <v-icon icon="mdi-image-off" size="48" opacity="0.3" />
+                </div>
+              </template>
+            </LazyImage>
+            <LazyImage
               v-else
               src="/placeholder.png"
               aspect-ratio="0.67"
-              cover
+              :cover="true"
             />
           </v-card>
         </v-col>
@@ -144,14 +156,25 @@
                     <td>
                       <div class="d-flex align-center">
                         <div class="poster-thumbnail mr-3">
-                          <v-img
+                          <LazyImage
                             v-if="posterUrl"
                             :src="posterUrl"
-                            cover
-                            width="48"
-                            height="64"
+                            width="48px"
+                            height="64px"
+                            :cover="true"
                             class="rounded"
-                          />
+                          >
+                            <template #placeholder>
+                              <div class="poster-placeholder">
+                                <v-icon icon="mdi-filmstrip" size="24" />
+                              </div>
+                            </template>
+                            <template #error>
+                              <div class="poster-placeholder">
+                                <v-icon icon="mdi-filmstrip" size="24" />
+                              </div>
+                            </template>
+                          </LazyImage>
                           <div v-else class="poster-placeholder">
                             <v-icon icon="mdi-filmstrip" size="24" />
                           </div>
@@ -173,7 +196,7 @@
                 </tbody>
               </v-table>
 
-              <!-- 移动端卡片列表 -->
+              <!-- 移动端列表 -->
               <v-list v-else>
                 <v-list-item
                   v-for="(record, index) in contentDetail.play_records"
@@ -182,14 +205,25 @@
                 >
                   <template #prepend>
                     <div class="poster-thumbnail mr-3">
-                      <v-img
+                      <LazyImage
                         v-if="posterUrl"
                         :src="posterUrl"
-                        cover
-                        width="48"
-                        height="64"
+                        width="48px"
+                        height="64px"
+                        :cover="true"
                         class="rounded"
-                      />
+                      >
+                        <template #placeholder>
+                          <div class="poster-placeholder">
+                            <v-icon icon="mdi-filmstrip" size="24" />
+                          </div>
+                        </template>
+                        <template #error>
+                          <div class="poster-placeholder">
+                            <v-icon icon="mdi-filmstrip" size="24" />
+                          </div>
+                        </template>
+                      </LazyImage>
                       <div v-else class="poster-placeholder">
                         <v-icon icon="mdi-filmstrip" size="24" />
                       </div>
@@ -212,16 +246,11 @@
           </v-card>
         </v-col>
       </v-row>
-    </template>
+    </div>
 
     <!-- 空状态 -->
-    <v-row v-else>
-      <v-col cols="12">
-        <v-alert type="info" variant="tonal">
-          未找到内容详情
-        </v-alert>
-      </v-col>
-    </v-row>
+    <EmptyState v-else key="empty" message="未找到内容详情" />
+  </v-fade-transition>
   </div>
 </template>
 
@@ -229,15 +258,17 @@
 import { ref, onMounted, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDisplay } from 'vuetify'
-import { Card, Avatar } from '@/components/ui'
+import { Avatar, LazyImage, LoadingState, EmptyState } from '@/components/ui'
 import { useServerStore } from '@/stores'
+import { usePosterUrl } from '@/composables'
 import { statsApi } from '@/services'
-import { formatDuration, formatDateTime, formatNumber, getPosterUrl } from '@/utils'
-import type { ContentDetailData } from '@/types'
+import { formatDuration, formatDateTime, formatNumber } from '@/utils'
+import type { ContentDetailData, StatsQueryParams } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
 const serverStore = useServerStore()
+const { usePosterUrlComputed } = usePosterUrl()
 const { mobile } = useDisplay()
 
 const loading = ref(false)
@@ -251,9 +282,8 @@ const hasPlayRecords = computed(() => {
 })
 
 // 给海报URL添加server_id和尺寸参数
-const posterUrl = computed(() => {
-  return getPosterUrl(contentDetail.value?.poster_url, serverStore.currentServer?.id, 900, 600)
-})
+const posterUrlSource = computed(() => contentDetail.value?.poster_url)
+const posterUrl = usePosterUrlComputed(posterUrlSource, 'custom', { maxHeight: 900, maxWidth: 600 })
 
 // 获取内容详情
 async function fetchContentDetail() {
@@ -263,7 +293,7 @@ async function fetchContentDetail() {
 
   loading.value = true
   try {
-    const params: Record<string, any> = {
+    const params: StatsQueryParams & { item_id: string } = {
       server_id: serverStore.currentServer.id,
       item_id: itemId
     }
@@ -296,144 +326,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.page {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 24px;
-  animation: fadeIn 0.4s ease;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-}
-
-.page-title {
-  font-size: 24px;
-  font-weight: 700;
-  margin: 0 0 4px 0;
-}
-
-.page-subtitle {
-  font-size: 14px;
-  opacity: 0.7;
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.stat-card {
-  cursor: pointer;
-  animation: fadeInUp 0.5s ease backwards;
-}
-
-.pulse-card {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.pulse-card:hover {
-  transform: translateY(-6px) scale(1.02);
-}
-
-.v-theme--dark .pulse-card {
-  border: 1px solid rgba(59, 130, 246, 0.15);
-}
-
-.v-theme--dark .pulse-card:hover {
-  border-color: rgba(59, 130, 246, 0.35);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6) !important;
-}
-
-.stat-content {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.stat-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: transform 0.3s ease;
-}
-
-.pulse-card:hover .stat-icon {
-  transform: scale(1.1) rotate(5deg);
-}
-
-.stat-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.stat-label {
-  font-size: 13px;
-  opacity: 0.7;
-  margin-bottom: 4px;
-}
-
-.stat-value {
-  font-size: 24px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-weight: 600;
-}
-
-/* 海报缩略图样式 */
-.poster-thumbnail {
-  position: relative;
-  width: 48px;
-  height: 64px;
-  border-radius: 8px;
-  overflow: hidden;
-  background-color: rgb(39, 39, 42);
-  flex-shrink: 0;
-}
-
-.poster-placeholder {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: rgb(39, 39, 42);
-}
-
+/* 移动端适配 */
 @media (max-width: 768px) {
   .page {
     padding: 16px;
@@ -443,10 +336,6 @@ onMounted(() => {
     flex-direction: column;
     align-items: flex-start;
     gap: 16px;
-  }
-
-  .stat-value {
-    font-size: 20px;
   }
 }
 </style>

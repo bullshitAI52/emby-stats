@@ -56,25 +56,13 @@
               />
 
               <!-- 密码 -->
-              <v-text-field
+              <PasswordField
                 v-model="password"
                 label="密码"
-                prepend-inner-icon="mdi-lock"
-                variant="outlined"
-                :type="showPassword ? 'text' : 'password'"
                 :rules="[rules.required]"
                 :disabled="!selectedServerId"
-                class="mb-4"
-              >
-                <template #append-inner>
-                  <v-btn
-                    :icon="showPassword ? 'mdi-eye-off' : 'mdi-eye'"
-                    variant="text"
-                    size="small"
-                    @click="showPassword = !showPassword"
-                  />
-                </template>
-              </v-text-field>
+                field-class="mb-4"
+              />
 
               <!-- 登录按钮 -->
               <v-btn
@@ -129,7 +117,9 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore, useServerStore } from '@/stores'
 import { useToast } from '@/composables'
+import { PasswordField } from '@/components/ui'
 import ServerManagementPanel from '@/components/ServerManagementPanel.vue'
+import { VALIDATION_RULES } from '@/constants'
 
 const router = useRouter()
 const route = useRoute()
@@ -141,14 +131,11 @@ const formRef = ref()
 const selectedServerId = ref<string>('')
 const username = ref('')
 const password = ref('')
-const showPassword = ref(false)
 const loading = ref(false)
 const showServerManagement = ref(false)
 
 // 表单验证规则
-const rules = {
-  required: (v: string) => !!v || '此字段为必填项',
-}
+const rules = VALIDATION_RULES
 
 // 服务器选项
 const serverOptions = computed(() => {

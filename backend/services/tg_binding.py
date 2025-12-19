@@ -5,6 +5,9 @@ Telegram 用户绑定服务
 import aiosqlite
 from datetime import datetime
 from typing import Optional
+from logger import get_logger
+
+logger = get_logger("services.tg_binding")
 
 # 绑定数据库路径
 TG_BINDINGS_DB = "/config/tg_bindings.db"
@@ -16,6 +19,7 @@ class TgBindingService:
     async def init_db(self):
         """初始化绑定数据库"""
         async with aiosqlite.connect(TG_BINDINGS_DB) as db:
+            await db.execute("PRAGMA busy_timeout = 30000")
             # 检查是否需要迁移旧表
             await self._migrate_if_needed(db)
 
@@ -73,11 +77,11 @@ class TgBindingService:
                             await self._do_migration(db)
                         break
         except Exception as e:
-            print(f"Migration check error: {e}")
+            logger.error(f"Migration check error: {e}")
 
     async def _do_migration(self, db):
         """执行表迁移"""
-        print("TgBinding: Migrating to multi-server binding support...")
+        logger.info("TgBinding: Migrating to multi-server binding support...")
         try:
             # 1. 重命名旧表
             await db.execute("ALTER TABLE tg_bindings RENAME TO tg_bindings_old")
@@ -108,14 +112,15 @@ class TgBindingService:
             await db.execute("DROP TABLE tg_bindings_old")
 
             await db.commit()
-            print("TgBinding: Migration completed successfully")
+            logger.info("TgBinding: Migration completed successfully")
         except Exception as e:
-            print(f"TgBinding: Migration failed: {e}")
+            logger.error(f"TgBinding: Migration failed: {e}")
             raise
 
     async def get_binding(self, tg_user_id: str, server_id: Optional[str] = None) -> Optional[dict]:
         """获取用户绑定信息（指定服务器或第一个绑定）"""
         async with aiosqlite.connect(TG_BINDINGS_DB) as db:
+            await db.execute("PRAGMA busy_timeout = 30000")
             db.row_factory = aiosqlite.Row
             if server_id:
                 # 获取指定服务器的绑定
@@ -140,6 +145,7 @@ class TgBindingService:
     async def get_user_bindings(self, tg_user_id: str) -> list[dict]:
         """获取用户的所有绑定"""
         async with aiosqlite.connect(TG_BINDINGS_DB) as db:
+            await db.execute("PRAGMA busy_timeout = 30000")
             db.row_factory = aiosqlite.Row
             async with db.execute(
                 "SELECT * FROM tg_bindings WHERE tg_user_id = ? ORDER BY created_at ASC",
@@ -151,6 +157,7 @@ class TgBindingService:
     async def get_bound_server_ids(self, tg_user_id: str) -> list[str]:
         """获取用户已绑定的服务器ID列表"""
         async with aiosqlite.connect(TG_BINDINGS_DB) as db:
+            await db.execute("PRAGMA busy_timeout = 30000")
             async with db.execute(
                 "SELECT server_id FROM tg_bindings WHERE tg_user_id = ?",
                 (str(tg_user_id),)
@@ -170,6 +177,7 @@ class TgBindingService:
         """创建绑定关系"""
         try:
             async with aiosqlite.connect(TG_BINDINGS_DB) as db:
+                await db.execute("PRAGMA busy_timeout = 30000")
                 await db.execute("""
                     INSERT OR REPLACE INTO tg_bindings
                     (tg_user_id, tg_username, tg_first_name, server_id, emby_user_id, emby_username, created_at)
@@ -186,13 +194,14 @@ class TgBindingService:
                 await db.commit()
             return True
         except Exception as e:
-            print(f"Error creating binding: {e}")
+            logger.error(f"Error creating binding: {e}")
             return False
 
     async def delete_binding(self, tg_user_id: str, server_id: Optional[str] = None) -> bool:
         """删除绑定关系（指定服务器或全部）"""
         try:
             async with aiosqlite.connect(TG_BINDINGS_DB) as db:
+                await db.execute("PRAGMA busy_timeout = 30000")
                 if server_id:
                     # 删除指定服务器的绑定
                     await db.execute(
@@ -208,12 +217,13 @@ class TgBindingService:
                 await db.commit()
             return True
         except Exception as e:
-            print(f"Error deleting binding: {e}")
+            logger.error(f"Error deleting binding: {e}")
             return False
 
     async def get_all_bindings(self, server_id: Optional[str] = None) -> list[dict]:
         """获取所有绑定关系"""
         async with aiosqlite.connect(TG_BINDINGS_DB) as db:
+            await db.execute("PRAGMA busy_timeout = 30000")
             db.row_factory = aiosqlite.Row
             if server_id:
                 query = "SELECT * FROM tg_bindings WHERE server_id = ? ORDER BY created_at DESC"
@@ -233,6 +243,7 @@ class TgBindingService:
     async def get_binding_count(self, server_id: Optional[str] = None) -> int:
         """获取绑定数量"""
         async with aiosqlite.connect(TG_BINDINGS_DB) as db:
+            await db.execute("PRAGMA busy_timeout = 30000")
             if server_id:
                 query = "SELECT COUNT(*) FROM tg_bindings WHERE server_id = ?"
                 params = (server_id,)

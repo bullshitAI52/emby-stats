@@ -1,14 +1,6 @@
 <template>
   <div class="page">
-    <!-- 页面标题 -->
-    <div class="page-header">
-      <div>
-        <h2 class="page-title">报告配置</h2>
-        <p class="page-subtitle">
-          配置定时推送和 Telegram 机器人
-        </p>
-      </div>
-    </div>
+    <PageHeader title="报告配置" subtitle="配置定时推送和 Telegram 机器人" />
 
     <v-tabs v-model="activeTab" class="mb-4">
       <v-tab value="report">报告配置</v-tab>
@@ -20,7 +12,7 @@
       <v-window-item value="report">
         <v-row>
           <v-col cols="12" lg="8">
-            <v-card hover>
+            <v-card v-reveal data-delay="100" hover>
               <v-card-title class="card-header">
                 <span>报告配置</span>
                 <v-icon>mdi-file-document-outline</v-icon>
@@ -40,26 +32,17 @@
                 />
 
                 <template v-if="reportConfig.telegram.enabled">
-                  <v-text-field
+                  <PasswordField
                     v-model="reportConfig.telegram.bot_token"
                     label="Bot Token"
+                    prepend-icon=""
                     variant="outlined"
                     density="compact"
-                    :type="showReportToken ? 'text' : 'password'"
                     placeholder="从 @BotFather 获取"
                     hint="配置后才能启用 Telegram 推送"
-                    persistent-hint
-                    class="mb-3"
-                  >
-                    <template #append-inner>
-                      <v-btn
-                        :icon="showReportToken ? 'mdi-eye-off' : 'mdi-eye'"
-                        variant="text"
-                        size="small"
-                        @click="showReportToken = !showReportToken"
-                      />
-                    </template>
-                  </v-text-field>
+                    :persistent-hint="true"
+                    field-class="mb-3"
+                  />
 
                   <v-text-field
                     v-model="reportConfig.telegram.chat_id"
@@ -324,7 +307,7 @@
             </v-card>
 
             <!-- 绑定用户列表 -->
-            <v-card v-if="bindings.length > 0" hover class="mt-4">
+            <v-card v-if="bindings.length > 0" v-reveal data-delay="200" hover class="mt-4">
               <v-card-title class="card-header">
                 <span>已绑定用户 ({{ bindings.length }})</span>
                 <v-icon>mdi-account-multiple</v-icon>
@@ -383,7 +366,7 @@
       <v-window-item value="telegram">
         <v-row>
           <v-col cols="12" lg="8">
-            <v-card hover>
+            <v-card v-reveal data-delay="100" hover>
               <v-card-title class="card-header">
                 <span>Telegram 机器人配置</span>
                 <v-icon>mdi-robot</v-icon>
@@ -404,15 +387,16 @@
                 />
 
                 <template v-if="tgConfig.enabled">
-                  <v-text-field
+                  <PasswordField
                     v-model="botTokenInput"
+                    label=""
+                    prepend-icon=""
                     variant="outlined"
                     density="compact"
-                    :type="showBotToken ? 'text' : 'password'"
                     :placeholder="tgConfig.bot_token_configured ? '留空保持不变' : '从 @BotFather 获取'"
                     hint="可与推送功能使用同一个 Bot"
-                    persistent-hint
-                    class="mb-4"
+                    :persistent-hint="true"
+                    field-class="mb-4"
                   >
                     <template #prepend>
                       <span class="text-body-2">Bot Token</span>
@@ -420,15 +404,7 @@
                         已配置
                       </v-chip>
                     </template>
-                    <template #append-inner>
-                      <v-btn
-                        :icon="showBotToken ? 'mdi-eye-off' : 'mdi-eye'"
-                        variant="text"
-                        size="small"
-                        @click="showBotToken = !showBotToken"
-                      />
-                    </template>
-                  </v-text-field>
+                  </PasswordField>
 
                   <v-select
                     v-model="tgConfig.default_period"
@@ -495,11 +471,11 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, watch } from 'vue'
-import { Card, Avatar } from '@/components/ui'
+import { Avatar, PageHeader, PasswordField } from '@/components/ui'
 import { useServerStore } from '@/stores'
 import { useToast } from '@/composables'
 import { reportApi, tgBotApi } from '@/services'
-import { formatDateTime } from '@/utils'
+import { VALIDATION_RULES } from '@/constants'
 import type { ReportConfig, TgBotConfig, TgBindingUser } from '@/types'
 
 const serverStore = useServerStore()
@@ -508,8 +484,6 @@ const { success, error: showError } = useToast()
 const activeTab = ref('report')
 const reportFormRef = ref()
 const tgFormRef = ref()
-const showReportToken = ref(false)
-const showBotToken = ref(false)
 
 const savingReport = ref(false)
 const sendingReport = ref(false)
@@ -581,13 +555,8 @@ const periodOptions = [
   { title: '最近一年', value: '365d' },
 ]
 
-const rules = {
-  required: (v: any) => {
-    if (typeof v === 'number') return true
-    return !!v || '此字段为必填项'
-  },
-  positiveNumber: (v: number) => v > 0 || '必须大于 0',
-}
+// 使用统一的验证规则
+const rules = VALIDATION_RULES
 
 // 加载报告配置
 async function loadReportConfig() {
@@ -661,8 +630,9 @@ async function handleTestReport() {
   try {
     await reportApi.testReportPush(reportConfig.telegram.bot_token, reportConfig.telegram.chat_id)
     success('测试消息已发送！请检查 Telegram 查看')
-  } catch (error: any) {
-    const errorMsg = error?.response?.data?.error || '测试失败，请检查 Bot Token 和 Chat ID'
+  } catch (error: unknown) {
+    const err = error as { response?: { data?: { error?: string } } }
+    const errorMsg = err?.response?.data?.error || '测试失败，请检查 Bot Token 和 Chat ID'
     showError(errorMsg)
   } finally {
     testingReport.value = false
@@ -692,10 +662,12 @@ async function handleSaveTgConfig() {
 
   savingTg.value = true
   try {
-    const configToSave: any = {
+    const configToSave = {
       enabled: tgConfig.enabled,
       default_period: tgConfig.default_period,
-    }
+      bot_token_configured: tgConfig.bot_token_configured,
+      is_running: tgConfig.is_running,
+    } as TgBotConfig & { bot_token?: string }
 
     // 只有在输入了新token时才发送
     if (botTokenInput.value.trim()) {
@@ -766,124 +738,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.page {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 24px;
-  animation: fadeIn 0.4s ease;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-}
-
-.page-title {
-  font-size: 24px;
-  font-weight: 700;
-  margin: 0 0 4px 0;
-}
-
-.page-subtitle {
-  font-size: 14px;
-  opacity: 0.7;
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.stat-card {
-  cursor: pointer;
-  animation: fadeInUp 0.5s ease backwards;
-}
-
-.pulse-card {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.pulse-card:hover {
-  transform: translateY(-6px) scale(1.02);
-}
-
-.v-theme--dark .pulse-card {
-  border: 1px solid rgba(59, 130, 246, 0.15);
-}
-
-.v-theme--dark .pulse-card:hover {
-  border-color: rgba(59, 130, 246, 0.35);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6) !important;
-}
-
-.stat-content {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.stat-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: transform 0.3s ease;
-}
-
-.pulse-card:hover .stat-icon {
-  transform: scale(1.1) rotate(5deg);
-}
-
-.stat-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.stat-label {
-  font-size: 13px;
-  opacity: 0.7;
-  margin-bottom: 4px;
-}
-
-.stat-value {
-  font-size: 24px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-weight: 600;
-}
-
 /* 绑定列表样式 */
 .binding-list {
   display: flex;
@@ -916,21 +770,5 @@ onMounted(() => {
   display: block;
   width: 100%;
   height: auto;
-}
-
-@media (max-width: 768px) {
-  .page {
-    padding: 16px;
-  }
-
-  .page-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 16px;
-  }
-
-  .stat-value {
-    font-size: 20px;
-  }
 }
 </style>

@@ -7,6 +7,9 @@ import os
 import glob
 from typing import Optional
 from pydantic import BaseModel
+from logger import get_logger
+
+logger = get_logger("services.report_config")
 
 
 class TelegramConfig(BaseModel):
@@ -74,7 +77,7 @@ class ReportConfigService:
                 config = ReportConfig()
             self._configs[server_id] = config
         except Exception as e:
-            print(f"Error loading report config for server {server_id}: {e}")
+            logger.error(f"Error loading report config for server {server_id}: {e}")
             config = ReportConfig()
             self._configs[server_id] = config
 
@@ -90,7 +93,7 @@ class ReportConfigService:
             self._configs[server_id] = config
             return True
         except Exception as e:
-            print(f"Error saving report config for server {server_id}: {e}")
+            logger.error(f"Error saving report config for server {server_id}: {e}")
             return False
 
     def reload(self, server_id: str = None):
@@ -132,9 +135,9 @@ class ReportConfigService:
                 data.pop("server_id", None)
                 config = ReportConfig(**data)
                 self.save(default_server_id, config)
-                print(f"Migrated legacy report config to server {default_server_id}")
+                logger.info(f"Migrated legacy report config to server {default_server_id}")
         except Exception as e:
-            print(f"Error migrating legacy report config: {e}")
+            logger.error(f"Error migrating legacy report config: {e}")
 
 
 # 单例实例

@@ -100,12 +100,14 @@
         <!-- 数据库路径选择 -->
         <v-text-field
           v-model="formData.playback_db"
-          label="播放记录数据库 *"
+          label="播放记录数据库（playback_reporting.db）*"
           density="compact"
           variant="outlined"
           readonly
           :rules="[rules.required]"
-          class="mb-2"
+          hint="示例: /data/playback_reporting.db"
+          persistent-hint
+          class="mb-3"
         >
           <template #append-inner>
             <v-btn
@@ -119,12 +121,14 @@
 
         <v-text-field
           v-model="formData.users_db"
-          label="用户数据库 *"
+          label="用户数据库（users.db）*"
           density="compact"
           variant="outlined"
           readonly
           :rules="[rules.required]"
-          class="mb-2"
+          hint="示例: /data/users.db"
+          persistent-hint
+          class="mb-3"
         >
           <template #append-inner>
             <v-btn
@@ -138,12 +142,14 @@
 
         <v-text-field
           v-model="formData.auth_db"
-          label="认证数据库 *"
+          label="认证数据库（authentication.db）*"
           density="compact"
           variant="outlined"
           readonly
           :rules="[rules.required]"
-          class="mb-2"
+          hint="示例: /data/authentication.db"
+          persistent-hint
+          class="mb-3"
         >
           <template #append-inner>
             <v-btn
@@ -295,6 +301,8 @@ async function handleSubmit() {
       success('服务器添加成功')
     }
     resetForm()
+    // 关闭对话框
+    internalShow.value = false
   } catch (err) {
     showError('操作失败，请稍后重试')
   } finally {

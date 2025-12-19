@@ -1,10 +1,17 @@
 <template>
-  <router-view />
+  <router-view v-slot="{ Component }">
+    <transition name="page-fade" mode="out-in">
+      <component :is="Component" />
+    </transition>
+  </router-view>
+  <GlobalConfirm />
+  <GlobalToast />
 </template>
 
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { useThemeStore } from '@/stores'
+import { GlobalConfirm, GlobalToast } from '@/components'
 
 const themeStore = useThemeStore()
 

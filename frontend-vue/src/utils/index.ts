@@ -130,6 +130,7 @@ export function appendServerId(
   serverId: string | undefined
 ): string | undefined {
   if (!url || !serverId) return url
+  if (url.includes('server_id=')) return url
   const separator = url.includes('?') ? '&' : '?'
   return `${url}${separator}server_id=${serverId}`
 }

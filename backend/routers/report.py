@@ -9,7 +9,7 @@ from typing import Optional
 from pydantic import BaseModel
 import httpx
 
-from services.report_simple import report_service_simple as report_service, ReportPeriod
+from services.report import report_service, ReportPeriod
 from services.telegram import telegram_service
 from services.users import user_service
 from services.report_config import report_config_service, TelegramConfig, ScheduleItemConfig

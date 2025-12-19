@@ -82,7 +82,7 @@ export const useAuthStore = defineStore(
   },
   {
     persist: {
-      storage: sessionStorage,
+      storage: localStorage,
       paths: ['user'],
     } as any,
   }

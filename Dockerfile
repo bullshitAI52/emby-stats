@@ -32,6 +32,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 复制后端代码
 COPY backend/ .
 
+# 复制工具脚本
+COPY tools/ /app/tools/
+
 # 复制构建好的前端代码
 COPY --from=frontend-builder /app/frontend/dist /app/frontend
 
@@ -41,5 +44,5 @@ RUN mkdir -p /config
 # 暴露端口
 EXPOSE 8000
 
-# 启动
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# 启动（禁用Uvicorn访问日志，减少日志噪音）
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]

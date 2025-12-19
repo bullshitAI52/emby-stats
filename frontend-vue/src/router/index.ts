@@ -84,6 +84,14 @@ const routes: RouteRecordRaw[] = [
           title: '报告配置',
         },
       },
+      {
+        path: 'tools',
+        name: 'Tools',
+        component: () => import('@/pages/Tools.vue'),
+        meta: {
+          title: '工具箱',
+        },
+      },
     ],
   },
   {

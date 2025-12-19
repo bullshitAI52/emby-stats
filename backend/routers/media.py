@@ -2,7 +2,7 @@
 媒体相关路由模块
 处理内容排行和海报等 API 端点
 """
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, HTTPException
 from fastapi.responses import StreamingResponse
 from datetime import datetime, timedelta
 from collections import defaultdict
@@ -12,66 +12,10 @@ from database import get_playback_db, get_count_expr, local_date, local_datetime
 from services.emby import emby_service
 from services.servers import server_service
 from services.users import user_service
+from name_mappings import name_mapping_service
+from utils.query_parser import build_filter_conditions
 
 router = APIRouter(prefix="/api", tags=["media"])
-
-
-def build_filter_conditions(
-    days: Optional[int] = None,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
-    users: Optional[List[str]] = None,
-    clients: Optional[List[str]] = None,
-    devices: Optional[List[str]] = None,
-    item_types: Optional[List[str]] = None,
-    playback_methods: Optional[List[str]] = None,
-) -> tuple[str, list]:
-    """构建通用的筛选条件"""
-    conditions = []
-    params = []
-    date_col = local_date("DateCreated")
-
-    if start_date and end_date:
-        conditions.append(f"{date_col} >= date(?) AND {date_col} <= date(?)")
-        params.extend([start_date, end_date])
-    elif start_date:
-        conditions.append(f"{date_col} >= date(?)")
-        params.append(start_date)
-    elif end_date:
-        conditions.append(f"{date_col} <= date(?)")
-        params.append(end_date)
-    elif days:
-        since_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
-        conditions.append(f"{date_col} >= date(?)")
-        params.append(since_date)
-
-    if users and len(users) > 0:
-        placeholders = ",".join(["?" for _ in users])
-        conditions.append(f"UserId IN ({placeholders})")
-        params.extend(users)
-
-    if clients and len(clients) > 0:
-        placeholders = ",".join(["?" for _ in clients])
-        conditions.append(f"ClientName IN ({placeholders})")
-        params.extend(clients)
-
-    if devices and len(devices) > 0:
-        placeholders = ",".join(["?" for _ in devices])
-        conditions.append(f"DeviceName IN ({placeholders})")
-        params.extend(devices)
-
-    if item_types and len(item_types) > 0:
-        placeholders = ",".join(["?" for _ in item_types])
-        conditions.append(f"ItemType IN ({placeholders})")
-        params.extend(item_types)
-
-    if playback_methods and len(playback_methods) > 0:
-        placeholders = ",".join(["?" for _ in playback_methods])
-        conditions.append(f"PlaybackMethod IN ({placeholders})")
-        params.extend(playback_methods)
-
-    where_clause = " AND ".join(conditions) if conditions else "1=1"
-    return where_clause, params
 
 
 @router.get("/top-content")
@@ -109,6 +53,8 @@ async def get_top_content(
         devices=device_list,
         item_types=type_list,
         playback_methods=method_list,
+        local_date_func=local_date,
+        name_mapping_service=name_mapping_service,
     )
 
     count_expr = get_count_expr()
@@ -172,6 +118,39 @@ async def get_top_content(
 
             # 获取海报 URL 和剧集介绍
             item_info = await emby_service.get_item_info(str(item_id), server_config)
+
+            # 如果第一个item_id的信息获取失败（空字典），尝试从数据库查找其他item_id
+            if not item_info:
+                # 对于剧集，按剧名查找；对于其他类型，按完整名称查找
+                if item_type_val == "Episode":
+                    search_field = "ItemName LIKE ?"
+                    search_value = f"{name} - %"
+                else:
+                    search_field = "ItemName = ?"
+                    search_value = name
+
+                fallback_query = f"""
+                    SELECT DISTINCT ItemId
+                    FROM PlaybackActivity
+                    WHERE {search_field} AND ItemType = ? AND ItemId != ?
+                    LIMIT 5
+                """
+                # 先收集所有候选 item_id
+                fallback_ids = []
+                async with db.execute(fallback_query, [search_value, item_type_val, item_id]) as fallback_cursor:
+                    async for fallback_row in fallback_cursor:
+                        fallback_ids.append(str(fallback_row[0]))
+
+                # 批量查询所有候选 item_id 的信息
+                if fallback_ids:
+                    items_info = await emby_service.get_items_info_batch(fallback_ids, server_config)
+                    # 找到第一个有效的 item_info
+                    for fallback_item_id in fallback_ids:
+                        if items_info.get(fallback_item_id):
+                            item_info = items_info[fallback_item_id]
+                            item_id = fallback_item_id
+                            break
+
             poster_url = emby_service.get_poster_url(str(item_id), item_type_val, item_info, server_id)
             backdrop_url = emby_service.get_backdrop_url(str(item_id), item_type_val, item_info, server_id)
 
@@ -182,13 +161,22 @@ async def get_top_content(
             detail_item_type = item_type_val
             if item_type_val == "Episode" and item_info:
                 series_id = item_info.get("SeriesId")
+                if not series_id:
+                    series_info_meta = item_info.get("SeriesInfo") or {}
+                    if isinstance(series_info_meta, dict):
+                        series_id = series_info_meta.get("Id") or series_info_meta.get("SeriesId")
                 if series_id:
                     series_info = await emby_service.get_item_info(series_id, server_config)
                     if series_info:
                         overview = series_info.get("Overview", overview)
+                        # 热门内容展示优先使用整部剧的海报，避免单集/季条目缺图
+                        series_poster_url = emby_service.get_poster_url(series_id, "Series", series_info, server_id)
+                        if series_poster_url:
+                            poster_url = series_poster_url
                         # 也尝试从剧集获取 backdrop
                         if not backdrop_url and series_info.get("BackdropImageTags"):
-                            backdrop_url = f"/api/backdrop/{series_id}"
+                            server_param = f"?server_id={server_id}" if server_id else ""
+                            backdrop_url = f"/api/backdrop/{series_id}{server_param}"
                         # 返回 Series ID，这样前端跳转时会进入整部剧详情
                         detail_item_id = series_id
                         detail_item_type = "Series"
@@ -241,6 +229,8 @@ async def get_top_shows(
         devices=device_list,
         item_types=["Episode"],  # 只查剧集
         playback_methods=method_list,
+        local_date_func=local_date,
+        name_mapping_service=name_mapping_service,
     )
 
     count_expr = get_count_expr()
@@ -279,14 +269,42 @@ async def get_top_shows(
     sorted_shows = sorted(shows.items(), key=lambda x: x[1]["play_count"], reverse=True)[:limit]
 
     result = []
-    for show_name, data in sorted_shows:
+    for show_name, show_data in sorted_shows:
         # 获取海报和剧集介绍
         poster_url = None
         backdrop_url = None
         overview = ""
         series_id = None
-        if data["item_id"]:
-            info = await emby_service.get_item_info(str(data["item_id"]), server_config)
+        item_id = show_data["item_id"]
+
+        if item_id:
+            info = await emby_service.get_item_info(str(item_id), server_config)
+
+            # 如果第一个item_id的信息获取失败（空字典），尝试从数据库查找其他集数
+            if not info:
+                fallback_query = f"""
+                    SELECT DISTINCT ItemId
+                    FROM PlaybackActivity
+                    WHERE ItemName LIKE ? AND ItemType = 'Episode' AND ItemId != ?
+                    LIMIT 5
+                """
+                # 先收集所有候选 item_id
+                fallback_ids = []
+                async with get_playback_db(server_config) as fallback_db:
+                    async with fallback_db.execute(fallback_query, [f"{show_name} - %", item_id]) as fallback_cursor:
+                        async for fallback_row in fallback_cursor:
+                            fallback_ids.append(str(fallback_row[0]))
+
+                # 批量查询所有候选 item_id 的信息
+                if fallback_ids:
+                    items_info = await emby_service.get_items_info_batch(fallback_ids, server_config)
+                    # 找到第一个有效的 item_info
+                    for fallback_item_id in fallback_ids:
+                        if items_info.get(fallback_item_id):
+                            info = items_info[fallback_item_id]
+                            item_id = fallback_item_id
+                            break
+
             if info and info.get("SeriesId"):
                 series_id = info["SeriesId"]
                 server_param = f"?server_id={server_id}" if server_id else ""
@@ -300,9 +318,9 @@ async def get_top_shows(
 
         result.append({
             "show_name": show_name,
-            "play_count": data["play_count"],
-            "duration_hours": round(data["duration"] / 3600, 2),
-            "episode_count": len(data["episodes"]),
+            "play_count": show_data["play_count"],
+            "duration_hours": round(show_data["duration"] / 3600, 2),
+            "episode_count": len(show_data["episodes"]),
             "poster_url": poster_url,
             "backdrop_url": backdrop_url,
             "overview": overview
@@ -324,11 +342,13 @@ async def get_poster(
         server_config = await server_service.get_server(server_id)
 
     content, content_type = await emby_service.get_poster(item_id, maxHeight, maxWidth, server_config)
+    if not content:
+        raise HTTPException(status_code=404, detail="Poster not found")
 
     return StreamingResponse(
         iter([content]),
         media_type=content_type,
-        headers={"Cache-Control": "public, max-age=86400"} if content else {}
+        headers={"Cache-Control": "public, max-age=86400"}
     )
 
 
@@ -345,11 +365,13 @@ async def get_backdrop(
         server_config = await server_service.get_server(server_id)
 
     content, content_type = await emby_service.get_backdrop(item_id, maxHeight, maxWidth, server_config)
+    if not content:
+        raise HTTPException(status_code=404, detail="Backdrop not found")
 
     return StreamingResponse(
         iter([content]),
         media_type=content_type,
-        headers={"Cache-Control": "public, max-age=86400"} if content else {}
+        headers={"Cache-Control": "public, max-age=86400"}
     )
 
 
@@ -370,34 +392,30 @@ async def get_content_detail(
 
     # 先从 Emby API 获取基本信息
     item_info = await emby_service.get_item_info(item_id, server_config)
-    if not item_info:
-        return {
-            "item_name": "未知内容",
-            "show_name": "未知内容",
-            "item_type": "Unknown",
-            "poster_url": None,
-            "backdrop_url": None,
-            "overview": "",
-            "stats": {
-                "total_plays": 0,
-                "total_duration_hours": 0,
-                "unique_users": 0,
-                "last_play": None
-            },
-            "play_records": []
-        }
 
-    # 从 Emby API 获取基本信息
-    item_name = item_info.get("Name", "未知内容")
-    item_type = item_info.get("Type", "Unknown")
-    overview = item_info.get("Overview", "")
+    # 从播放数据库获取基本信息作为回退（如果 Emby API 失败）
+    db_item_name = None
+    db_item_type = None
+    async with get_playback_db(server_config) as db:
+        async with db.execute("""
+            SELECT ItemName, ItemType FROM PlaybackActivity WHERE ItemId = ? LIMIT 1
+        """, [item_id]) as cursor:
+            row = await cursor.fetchone()
+            if row:
+                db_item_name = row[0]
+                db_item_type = row[1]
+
+    # 优先使用 Emby API 的信息，失败时使用数据库的信息
+    item_name = item_info.get("Name") if item_info else (db_item_name or "未知内容")
+    item_type = item_info.get("Type") if item_info else (db_item_type or "Unknown")
+    overview = item_info.get("Overview", "") if item_info else ""
 
     # 获取海报和背景图
     poster_url = emby_service.get_poster_url(item_id, item_type, item_info, server_id)
     backdrop_url = emby_service.get_backdrop_url(item_id, item_type, item_info, server_id)
 
     # 如果是剧集，尝试获取剧集信息
-    if item_type == "Episode":
+    if item_type == "Episode" and item_info:
         series_id = item_info.get("SeriesId")
         if series_id:
             series_info = await emby_service.get_item_info(series_id, server_config)
@@ -481,8 +499,8 @@ async def get_content_detail(
                     "time": row[0],
                     "username": username,
                     "item_name": row[2],
-                    "client": row[3],
-                    "device": row[4],
+                    "client": name_mapping_service.map_client_name(row[3]),
+                    "device": name_mapping_service.map_device_name(row[4]),
                     "duration_minutes": round((row[5] or 0) / 60, 1),
                     "method": row[6]
                 })
@@ -502,4 +520,3 @@ async def get_content_detail(
         },
         "play_records": play_records
     }
-

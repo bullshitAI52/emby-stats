@@ -63,7 +63,8 @@ class ReportService:
         for path in font_paths:
             try:
                 return ImageFont.truetype(path, size)
-            except:
+            except (OSError, IOError):
+                # 字体文件不存在或无法读取，尝试下一个
                 continue
         return ImageFont.load_default()
 
@@ -113,7 +114,8 @@ class ReportService:
         try:
             data, _ = await emby_service.get_poster(item_id, max_height=200, max_width=140, server_config=server_config)
             return data if data else None
-        except:
+        except Exception:
+            # 海报获取失败（网络错误、API 错误等），返回空
             return None
 
     def _create_gradient_background(self, width: int, height: int) -> Image.Image:

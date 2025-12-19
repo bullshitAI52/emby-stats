@@ -7,6 +7,9 @@ import time
 import aiosqlite
 from typing import Optional
 from pathlib import Path
+from logger import get_logger
+
+logger = get_logger("services.session")
 
 
 class SessionService:
@@ -28,6 +31,7 @@ class SessionService:
         Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
 
         async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("PRAGMA busy_timeout = 30000")
             # 检查表是否已存在
             cursor = await db.execute(
                 "SELECT name FROM sqlite_master WHERE type='table' AND name='sessions'"
@@ -42,7 +46,7 @@ class SessionService:
 
                 # 如果没有 expires_at 列，说明是旧表，需要删除重建
                 if 'expires_at' not in column_names:
-                    print("检测到旧版会话表，正在迁移...")
+                    logger.info("检测到旧版会话表，正在迁移...")
                     await db.execute("DROP TABLE IF EXISTS sessions")
                     await db.commit()
 
@@ -91,6 +95,7 @@ class SessionService:
         expires_at = now + self.session_expire
 
         async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("PRAGMA busy_timeout = 30000")
             await db.execute("""
                 INSERT INTO sessions
                 (session_id, user_id, username, is_admin, server_id,
@@ -120,6 +125,7 @@ class SessionService:
         now = int(time.time())
 
         async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("PRAGMA busy_timeout = 30000")
             db.row_factory = aiosqlite.Row
             cursor = await db.execute("""
                 SELECT session_id, user_id, username, is_admin,
@@ -165,6 +171,7 @@ class SessionService:
             return False
 
         async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("PRAGMA busy_timeout = 30000")
             cursor = await db.execute("""
                 DELETE FROM sessions WHERE session_id = ?
             """, (session_id,))
@@ -181,6 +188,7 @@ class SessionService:
         now = int(time.time())
 
         async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("PRAGMA busy_timeout = 30000")
             cursor = await db.execute("""
                 DELETE FROM sessions WHERE expires_at <= ?
             """, (now,))
@@ -204,6 +212,7 @@ class SessionService:
         new_expires = now + self.session_expire
 
         async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("PRAGMA busy_timeout = 30000")
             cursor = await db.execute("""
                 UPDATE sessions
                 SET expires_at = ?, last_activity = ?
@@ -225,6 +234,7 @@ class SessionService:
         now = int(time.time())
 
         async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("PRAGMA busy_timeout = 30000")
             db.row_factory = aiosqlite.Row
 
             if user_id:

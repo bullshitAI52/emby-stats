@@ -1,311 +1,146 @@
-/* Vuetify 3 主题样式 - 柔和圆润设计 */
+/* Vuetify 3 Theme - "Ceramic" & Corrected Light Mode */
 
-/* ==================== 全局基础 ==================== */
+/* ==================== Global Base ==================== */
 * {
   box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 
-/* ==================== Vuetify组件样式覆盖 ==================== */
+/* ==================== Component Overrides ==================== */
 
-/* 卡片 - 超大圆角 + 悬浮效果 */
+/* Cards - 64px Radius (Capsule) */
 .v-card {
-  border-radius: 20px !important;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+  border-radius: 64px !important;
+  transition: all 0.3s ease-out !important;
+  overflow: visible !important;
 }
 
-.v-card.hover:hover,
-.v-card[hover]:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.12) !important;
+/* ==================== Light Mode (FIXED) ==================== */
+.v-theme--light body {
+  background-color: #f2f5f9;
 }
 
-/* 深色模式 - 简化阴影，适度蓝色边框 */
+/* Light Mode Navigation & Header Fix */
+.v-theme--light .v-navigation-drawer, 
+.v-theme--light .v-app-bar {
+  background: rgba(255, 255, 255, 0.85) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid rgba(0, 0, 0, 0.05) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05) !important;
+  color: #1e293b !important; /* Ensure text is dark */
+}
+
+.v-theme--light .v-card {
+  background: #ffffff !important;
+  border: 1px solid #ffffff !important;
+  /* Clean, soft shadow for light mode */
+  box-shadow: 0 10px 30px -5px rgba(100, 116, 139, 0.15) !important;
+}
+
+.v-theme--light .v-card.hover:hover,
+.v-theme--light .v-card[hover]:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 40px -5px rgba(100, 116, 139, 0.25) !important;
+}
+
+/* ==================== Dark Mode (High Contrast Pop) ==================== */
+.v-theme--dark body {
+  /* Pitch Black Base for Maximum Pop */
+  background-color: #000000; 
+  background-attachment: fixed;
+}
+
+/* Dark Mode Navigation */
+.v-theme--dark .v-navigation-drawer, 
+.v-theme--dark .v-app-bar {
+  background: rgba(18, 18, 18, 0.8) !important;
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
 .v-theme--dark .v-card {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5) !important;
-  border: 1px solid rgba(59, 130, 246, 0.12);
+  /* 
+     Material Change: Lighter "Ceramic" Grey-Blue surface.
+     This creates distinct separation from the black background.
+  */
+  background: #151922 !important;
+  
+  /* No borders */
+  border: none !important;
+  
+  /* 
+     Ambient Colored Shadows (The "Glow")
+     - Cyan top-left
+     - Purple bottom-right
+     - Deep black underneath
+  */
+  box-shadow: 
+    0 20px 40px rgba(0, 0, 0, 1), /* Lift */
+    -20px -20px 60px rgba(6, 182, 212, 0.08), /* Cyan Haze */
+    20px 20px 60px rgba(147, 51, 234, 0.08) !important; /* Purple Haze */
 }
 
 .v-theme--dark .v-card.hover:hover,
 .v-theme--dark .v-card[hover]:hover {
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6) !important;
-  border-color: rgba(59, 130, 246, 0.3);
-  transform: translateY(-8px);
+  transform: translateY(-6px) scale(1.02);
+  background: #1c222e !important; /* Lighter on hover */
+  
+  /* Intensified Glow */
+  box-shadow: 
+    0 30px 60px rgba(0, 0, 0, 1),
+    -15px -15px 50px rgba(6, 182, 212, 0.15),
+    15px 15px 50px rgba(147, 51, 234, 0.15) !important;
 }
 
-/* 玻璃态效果 - 仅应用于对话框和特定卡片 */
-.v-theme--dark .v-dialog > .v-overlay__content > .v-card {
-  background: rgba(19, 22, 31, 0.85) !important;
-  backdrop-filter: blur(12px) saturate(150%);
-  -webkit-backdrop-filter: blur(12px) saturate(150%);
-}
-
-/* 按钮 - 圆角 + 悬浮动画 */
-.v-btn {
-  border-radius: 16px !important;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-  text-transform: none !important;
-  font-weight: 500 !important;
-}
-
-.v-btn:hover {
-  transform: translateY(-2px);
-}
-
-.v-btn.v-btn--variant-flat:hover {
-  box-shadow: 0 8px 20px rgba(var(--v-theme-primary), 0.3) !important;
-}
-
-/* 深色模式按钮增强 */
-.v-theme--dark .v-btn.v-btn--variant-flat:hover {
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3) !important;
-}
-
-/* 输入框 - 圆角 */
-.v-text-field .v-field {
-  border-radius: 12px !important;
-}
-
-.v-select .v-field {
-  border-radius: 12px !important;
-}
-
-/* 深色模式输入框 - 适度聚焦效果 */
-.v-theme--dark .v-field--focused {
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25) !important;
-}
-
-/* 输入框hint文字间距修复 */
-.v-text-field .v-messages {
-  min-height: 20px;
-  padding-top: 4px;
-}
-
-.v-input__details {
-  padding-inline: 16px;
-  min-height: 22px;
-}
-
-/* 对话框 - 超大圆角 */
-.v-dialog {
-  border-radius: 24px !important;
-  overflow: hidden;
-}
-
-/* 深色模式对话框增强 */
-.v-theme--dark .v-dialog > .v-overlay__content > .v-card {
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.8) !important;
-  border: 1px solid rgba(59, 130, 246, 0.2);
-}
-
-/* 列表项 - 圆角 + 悬停动画 */
-.v-list-item {
-  border-radius: 12px !important;
-  margin: 4px 8px !important;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-}
-
-.v-list-item:hover {
-  transform: translateX(4px);
-}
-
-.v-list-item--active {
-  box-shadow: 0 4px 12px rgba(var(--v-theme-primary), 0.25) !important;
-}
-
-/* 深色模式列表项增强 */
-.v-theme--dark .v-list-item--active {
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25) !important;
-  background: rgba(59, 130, 246, 0.12) !important;
-}
-
-/* Chip标签 - 柔和圆角 */
-.v-chip {
-  border-radius: 12px !important;
-  font-weight: 500 !important;
-}
-
-/* 导航抽屉 */
-.v-navigation-drawer {
-  border-radius: 0 !important;
-}
-
-/* 深色模式导航抽屉 - 适度蓝色边框 + 玻璃态 */
-.v-theme--dark .v-navigation-drawer {
-  border-right: 1px solid rgba(59, 130, 246, 0.12) !important;
-  background: rgba(19, 22, 31, 0.95) !important;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-}
-
-/* 深色模式顶栏 - 玻璃态 */
-.v-theme--dark .v-app-bar {
-  border-bottom: 1px solid rgba(59, 130, 246, 0.12) !important;
-  background: rgba(19, 22, 31, 0.95) !important;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-}
-
-/* 滚动条美化 */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.05);
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.3);
-}
-
-/* 深色模式滚动条 - 适度蓝色调 */
-.v-theme--dark ::-webkit-scrollbar-track {
+/* Stat Icons */
+.stat-icon {
+  border-radius: 50% !important;
+  width: 60px !important;
+  height: 60px !important;
   background: rgba(255, 255, 255, 0.03);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.5);
 }
 
-.v-theme--dark ::-webkit-scrollbar-thumb {
-  background: rgba(59, 130, 246, 0.2);
+/* Dialogs */
+.v-dialog .v-card {
+  background: #1c222e !important;
+  box-shadow: 0 50px 100px rgba(0,0,0,1) !important;
 }
 
-.v-theme--dark ::-webkit-scrollbar-thumb:hover {
-  background: rgba(59, 130, 246, 0.35);
+/* Buttons */
+.v-btn {
+  border-radius: 9999px !important;
+  height: 48px !important;
+  font-weight: 600;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3) !important;
 }
 
-/* 图标 - 柔和效果 */
-.v-icon {
-  transition: all 0.2s ease !important;
+/* Inputs */
+.v-field {
+  border-radius: 9999px !important;
+}
+.v-theme--dark .v-field {
+  background: #0d1117 !important;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+.v-theme--dark .v-field--focused {
+  border-color: #388bfd;
 }
 
-.v-btn:hover .v-icon,
-.v-list-item:hover .v-icon {
-  transform: scale(1.05);
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
 }
-
-/* ==================== 移动端优化 ==================== */
-
-@media (max-width: 768px) {
-  .page {
-    padding: 16px;
-  }
-
-  .page-header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .page-title {
-    font-size: 24px;
-  }
-
-  /* 移动端按钮最小触摸尺寸 */
-  .v-btn {
-    min-height: 44px;
-    min-width: 44px;
-  }
-
-  /* 移动端卡片间距优化 */
-  .v-card {
-    margin-bottom: 12px;
-  }
-
-  /* 移动端表格优化 */
-  .v-data-table {
-    font-size: 13px;
-  }
-
-  /* 移动端对话框全屏化 */
-  .v-dialog {
-    max-width: calc(100vw - 32px) !important;
-    margin: 16px;
-  }
-}
-
-/* 平板优化 (768px - 1024px) */
-@media (min-width: 768px) and (max-width: 1024px) {
-  .page {
-    padding: 20px;
-    max-width: 100%;
-  }
-
-  /* 平板端卡片网格优化 */
-  .v-row > .v-col {
-    padding: 8px;
-  }
-}
-
-/* iOS 安全区域适配 */
-@supports (padding: env(safe-area-inset-bottom)) {
-  body {
-    padding-top: env(safe-area-inset-top);
-    padding-bottom: env(safe-area-inset-bottom);
-    padding-left: env(safe-area-inset-left);
-    padding-right: env(safe-area-inset-right);
-  }
-}
-
-/* 防止过度滚动 */
-body {
-  overscroll-behavior-y: contain;
-}
-
-/* 触摸优化 */
-* {
-  -webkit-tap-highlight-color: transparent;
-}
-
-a, button, input, textarea, select {
-  -webkit-tap-highlight-color: rgba(29, 78, 216, 0.2);
-}
-
-/* 触摸反馈动画（仅移动端） */
-@media (hover: none) {
-  .v-btn:active {
-    transform: scale(0.97) !important;
-    transition: transform 0.1s !important;
-  }
-
-  .v-card:active {
-    transform: translateY(0) scale(0.98) !important;
-  }
-
-  .v-list-item:active {
-    transform: scale(0.98) !important;
-  }
-}
-
-/* 横屏模式优化 */
-@media (max-width: 768px) and (orientation: landscape) {
-  .page {
-    padding: 12px 16px;
-  }
-
-  .page-header {
-    margin-bottom: 16px;
-  }
-
-  /* 横屏时减小卡片垂直间距 */
-  .v-card {
-    margin-bottom: 8px;
-  }
-}
-
-/* 超大屏幕优化 (>1920px) */
-@media (min-width: 1920px) {
-  .page {
-    max-width: 1600px;
-  }
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
 }

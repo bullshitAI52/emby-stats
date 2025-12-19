@@ -8,6 +8,9 @@ from pydantic import BaseModel
 
 from services.servers import server_service
 from services.session import session_service
+from logger import get_logger
+
+logger = get_logger("auth")
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -49,7 +52,7 @@ async def authenticate_user_on_server(server_config: dict, username: str, passwo
                     "is_admin": policy.get("IsAdministrator", False)
                 }
     except Exception as e:
-        print(f"Authentication error: {e}")
+        logger.error(f"Authentication error: {e}")
     return None
 
 
@@ -123,7 +126,11 @@ async def check_auth(request: Request):
 
     return {
         "authenticated": True,
-        "username": session.get("username")
+        "user": {
+            "user_id": session.get("user_id"),
+            "username": session.get("username"),
+            "is_admin": session.get("is_admin")
+        }
     }
 
 

@@ -61,6 +61,11 @@
             height="4"
             class="mt-2"
           />
+
+          <!-- 时间显示 -->
+          <div class="text-caption text-grey mt-1" style="font-size: 11px">
+            {{ formatTime(session.position_seconds) }} / {{ formatTime(session.runtime_seconds) }}
+          </div>
         </v-list-item>
       </v-list>
     </v-card-text>
@@ -73,17 +78,39 @@ import { useIntervalFn } from '@vueuse/core'
 import { statsApi } from '@/services'
 import { useServerStore } from '@/stores'
 import { getPosterUrl } from '@/utils'
+import { REFRESH_INTERVALS, IMAGE_SIZES } from '@/constants'
 import type { NowPlayingItem } from '@/types'
 
 const serverStore = useServerStore()
 const sessions = ref<NowPlayingItem[]>([])
 const loading = ref(false)
 
+/**
+ * 格式化时间（秒 -> HH:MM:SS 或 MM:SS）
+ */
+function formatTime(seconds: number): string {
+  if (!seconds || seconds < 0) return '0:00'
+
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  const secs = Math.floor(seconds % 60)
+
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+  }
+  return `${minutes}:${secs.toString().padStart(2, '0')}`
+}
+
 // 给正在播放项的海报URL添加server_id和尺寸参数（小尺寸）
 const sessionsWithServerUrls = computed(() => {
   return sessions.value.map(session => ({
     ...session,
-    poster_url: getPosterUrl(session.poster_url, serverStore.currentServer?.id, 192, 128)
+    poster_url: getPosterUrl(
+      session.poster_url,
+      serverStore.currentServer?.id,
+      IMAGE_SIZES.POSTER_SMALL.maxHeight,
+      IMAGE_SIZES.POSTER_SMALL.maxWidth
+    )
   }))
 })
 
@@ -104,7 +131,7 @@ async function fetchNowPlaying() {
 }
 
 // 自动刷新（每 5 秒）
-const { pause, resume } = useIntervalFn(fetchNowPlaying, 5000, {
+const { pause, resume } = useIntervalFn(fetchNowPlaying, REFRESH_INTERVALS.NOW_PLAYING, {
   immediate: false,
 })
 

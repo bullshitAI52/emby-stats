@@ -20,6 +20,7 @@ class ServerService:
     async def init_servers_table(self):
         """初始化服务器配置表"""
         async with aiosqlite.connect(SERVERS_DB) as db:
+            await db.execute("PRAGMA busy_timeout = 30000")
             await db.execute("""
                 CREATE TABLE IF NOT EXISTS servers (
                     id TEXT PRIMARY KEY,
@@ -46,6 +47,7 @@ class ServerService:
 
         await self.init_servers_table()
         async with aiosqlite.connect(SERVERS_DB) as db:
+            await db.execute("PRAGMA busy_timeout = 30000")
             db.row_factory = aiosqlite.Row
             async with db.execute("""
                 SELECT id, name, emby_url, emby_api_key, playback_db, users_db, auth_db, is_default
@@ -103,10 +105,12 @@ class ServerService:
         # 如果设置为默认，先取消其他默认服务器
         if is_default:
             async with aiosqlite.connect(SERVERS_DB) as db:
+                await db.execute("PRAGMA busy_timeout = 30000")
                 await db.execute("UPDATE servers SET is_default = 0")
                 await db.commit()
 
         async with aiosqlite.connect(SERVERS_DB) as db:
+            await db.execute("PRAGMA busy_timeout = 30000")
             await db.execute("""
                 INSERT INTO servers (id, name, emby_url, emby_api_key, playback_db, users_db, auth_db, is_default, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, unixepoch())
@@ -134,6 +138,7 @@ class ServerService:
         # 如果设置为默认，先取消其他默认服务器
         if is_default:
             async with aiosqlite.connect(SERVERS_DB) as db:
+                await db.execute("PRAGMA busy_timeout = 30000")
                 await db.execute("UPDATE servers SET is_default = 0")
                 await db.commit()
 
@@ -169,6 +174,7 @@ class ServerService:
         params.append(server_id)
 
         async with aiosqlite.connect(SERVERS_DB) as db:
+            await db.execute("PRAGMA busy_timeout = 30000")
             await db.execute(
                 f"UPDATE servers SET {', '.join(updates)} WHERE id = ?",
                 params
@@ -183,6 +189,7 @@ class ServerService:
         """删除服务器"""
         await self.init_servers_table()
         async with aiosqlite.connect(SERVERS_DB) as db:
+            await db.execute("PRAGMA busy_timeout = 30000")
             cursor = await db.execute("DELETE FROM servers WHERE id = ?", (server_id,))
             await db.commit()
             deleted = cursor.rowcount > 0
@@ -192,14 +199,24 @@ class ServerService:
         return deleted
 
     async def migrate_legacy_config(self):
-        """迁移旧版单服务器配置到新系统"""
+        """迁移旧版单服务器配置到新系统
+
+        如果没有服务器配置，且环境变量中配置了数据库路径，
+        则自动创建默认服务器
+        """
         servers = await self.get_all_servers()
         if servers:
             # 已经有服务器配置，不需要迁移
             return
 
-        # 检查是否有旧配置
-        if not settings.EMBY_URL or settings.EMBY_URL == "http://localhost:8096":
+        # 从环境变量创建默认服务器
+        # 只要配置了数据库路径就创建（EMBY_URL 可以是任何值）
+        if not settings.PLAYBACK_DB or not settings.USERS_DB or not settings.AUTH_DB:
+            return
+
+        # 检查数据库文件是否存在
+        import os
+        if not os.path.exists(settings.PLAYBACK_DB):
             return
 
         # 创建默认服务器

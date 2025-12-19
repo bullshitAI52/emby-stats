@@ -6,8 +6,8 @@ services:
     ports:
       - "8899:8000"
     volumes:
-      # 挂载 Emby 数据目录（只读）
-      - /path/to/emby/data:/data:ro
+      # 挂载 Emby 数据目录（读写模式，用于 Item ID 替换工具）
+      - /path/to/emby/data:/data
       # 配置目录（可写，用于保存名称映射等配置）
       - emby-stats-config:/config
     environment:
@@ -27,6 +27,11 @@ services:
       # - MIN_PLAY_DURATION=300
       # 时区偏移（小时），用于 SQLite 查询时间转换，上海为 +8，默认 8
       # - TZ_OFFSET=8
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   emby-stats-config:

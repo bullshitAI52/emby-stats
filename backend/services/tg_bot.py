@@ -22,6 +22,9 @@ from services.emby import emby_service
 from services.servers import server_service
 from services.report import report_service
 from services.report_config import report_config_service
+from logger import get_logger
+
+logger = get_logger("services.tg_bot")
 
 # Bot 配置文件路径
 BOT_CONFIG_FILE = "/config/tg_bot_config.json"
@@ -67,7 +70,7 @@ class TgBotConfig:
             self._config = config
             return True
         except Exception as e:
-            print(f"Error saving bot config: {e}")
+            logger.error(f"Error saving bot config: {e}")
             return False
 
     def reload(self):
@@ -91,7 +94,7 @@ class TgBotService:
         """启动 Bot"""
         config = bot_config.load()
         if not config.get("enabled") or not config.get("bot_token"):
-            print("TgBot: Not configured or disabled")
+            logger.info("TgBot: Not configured or disabled")
             return
 
         try:
@@ -148,10 +151,10 @@ class TgBotService:
             await self.application.bot.set_my_commands(commands)
 
             self._running = True
-            print("TgBot: Started successfully")
+            logger.info("TgBot: Started successfully")
 
         except Exception as e:
-            print(f"TgBot: Failed to start: {e}")
+            logger.error(f"TgBot: Failed to start: {e}")
             self._running = False
 
     async def stop(self):
@@ -162,9 +165,9 @@ class TgBotService:
                 await self.application.stop()
                 await self.application.shutdown()
                 self._running = False
-                print("TgBot: Stopped")
+                logger.info("TgBot: Stopped")
             except Exception as e:
-                print(f"TgBot: Error stopping: {e}")
+                logger.error(f"TgBot: Error stopping: {e}")
 
     def is_running(self) -> bool:
         """检查 Bot 是否运行中"""
@@ -389,14 +392,14 @@ class TgBotService:
         server_id = session["server_id"]
         username = session["username"]
 
-        print(f"[TgBot] bind_password_received: user_id={user_id}, server_id={server_id}, username={username}")
+        logger.debug(f"[TgBot] bind_password_received: user_id={user_id}, server_id={server_id}, username={username}")
 
         # 发送验证中提示
         msg = await update.effective_chat.send_message("🔄 正在验证账户...")
 
         # 获取服务器配置
         server_config = await server_service.get_server(server_id)
-        print(f"[TgBot] server_config for {server_id}: {server_config}")
+        logger.debug(f"[TgBot] server_config for {server_id}: {server_config}")
 
         if not server_config:
             await msg.edit_text("❌ 服务器配置错误，请联系管理员。")
@@ -694,7 +697,7 @@ class TgBotService:
                 )
 
             except Exception as e:
-                print(f"TgBot: Error generating report: {e}")
+                logger.error(f"[TgBot] Error generating report: {e}")
                 await query.edit_message_text(f"❌ 生成报告失败：{str(e)}")
 
     # ==================== 信息查询 ====================

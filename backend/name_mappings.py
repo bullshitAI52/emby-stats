@@ -6,6 +6,12 @@
 import os
 import json
 from typing import Optional
+from collections import defaultdict
+from typing import Iterable, List
+
+from logger import get_logger
+
+logger = get_logger("name_mappings")
 
 # 映射配置文件路径（默认保存到 /config 目录，该目录可写）
 MAPPINGS_FILE = os.getenv("NAME_MAPPINGS_FILE", "/config/name_mappings.json")
@@ -45,15 +51,15 @@ class NameMappingService:
                         "clients": data.get("clients", {}),
                         "devices": data.get("devices", {})
                     }
-                    print(f"[NameMapping] 已加载映射配置: {len(self._mappings['clients'])} 个客户端, {len(self._mappings['devices'])} 个设备")
+                    logger.info(f"已加载映射配置: {len(self._mappings['clients'])} 个客户端, {len(self._mappings['devices'])} 个设备")
             else:
-                print(f"[NameMapping] 配置文件不存在: {MAPPINGS_FILE}, 使用默认配置")
+                logger.info(f"配置文件不存在: {MAPPINGS_FILE}, 使用默认配置")
                 self._mappings = DEFAULT_MAPPINGS.copy()
         except json.JSONDecodeError as e:
-            print(f"[NameMapping] 配置文件解析失败: {e}, 使用默认配置")
+            logger.warning(f"配置文件解析失败: {e}, 使用默认配置")
             self._mappings = DEFAULT_MAPPINGS.copy()
         except Exception as e:
-            print(f"[NameMapping] 加载配置失败: {e}, 使用默认配置")
+            logger.error(f"加载配置失败: {e}, 使用默认配置")
             self._mappings = DEFAULT_MAPPINGS.copy()
 
         self._loaded = True
@@ -83,6 +89,64 @@ class NameMappingService:
             return "Unknown"
         return self._mappings["devices"].get(original, original)
 
+    def expand_client_filters(self, values: Optional[Iterable[str]]) -> Optional[List[str]]:
+        """
+        将筛选参数中的客户端名称扩展为原始名称列表（用于数据库查询）。
+
+        支持两种输入：
+        - 传入原始名称：若该原始名称存在映射，则会扩展为所有映射到同一显示名的原始名称。
+        - 传入显示名称：会扩展为所有映射到该显示名的原始名称。
+        """
+        return self._expand_filters(values, kind="clients")
+
+    def expand_device_filters(self, values: Optional[Iterable[str]]) -> Optional[List[str]]:
+        """
+        将筛选参数中的设备名称扩展为原始名称列表（用于数据库查询）。
+
+        行为同 expand_client_filters。
+        """
+        return self._expand_filters(values, kind="devices")
+
+    def _expand_filters(self, values: Optional[Iterable[str]], kind: str) -> Optional[List[str]]:
+        self._load_mappings()
+        if not values:
+            return None
+
+        mapping: dict = self._mappings.get(kind, {})
+        reverse: dict[str, set[str]] = defaultdict(set)
+        for original, display in mapping.items():
+            reverse[str(display)].add(str(original))
+
+        expanded: list[str] = []
+        seen: set[str] = set()
+
+        for raw_value in values:
+            value = (raw_value or "").strip()
+            if not value:
+                continue
+
+            candidates: Optional[set[str]] = None
+
+            # 优先按“原始名称”处理，避免 display 与 original 同名时误判
+            if value in mapping:
+                display = str(mapping[value])
+                candidates = reverse.get(display)
+            elif value in reverse:
+                candidates = reverse.get(value)
+
+            if candidates:
+                for original in sorted(candidates):
+                    if original not in seen:
+                        expanded.append(original)
+                        seen.add(original)
+                continue
+
+            if value not in seen:
+                expanded.append(value)
+                seen.add(value)
+
+        return expanded
+
     def get_all_mappings(self) -> dict:
         """获取所有映射配置"""
         self._load_mappings()
@@ -102,10 +166,10 @@ class NameMappingService:
                 "clients": mappings.get("clients", {}),
                 "devices": mappings.get("devices", {})
             }
-            print(f"[NameMapping] 配置已保存: {MAPPINGS_FILE}")
+            logger.info(f"配置已保存: {MAPPINGS_FILE}")
             return True
         except Exception as e:
-            print(f"[NameMapping] 保存配置失败: {e}")
+            logger.error(f"保存配置失败: {e}")
             return False
 
 

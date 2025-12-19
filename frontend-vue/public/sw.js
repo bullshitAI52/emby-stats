@@ -1,4 +1,4 @@
-const CACHE_NAME = 'emby-stats-v2.27.0';
+const CACHE_NAME = 'emby-stats-v2.32.23-scroll-final-v2';
 const urlsToCache = [
   '/',
   '/index.html',

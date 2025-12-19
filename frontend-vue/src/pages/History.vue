@@ -1,18 +1,10 @@
 <template>
   <div class="page">
-    <!-- 页面标题 -->
-    <div class="page-header">
-      <div>
-        <h2 class="page-title">播放历史</h2>
-        <p class="page-subtitle">
-          查看所有播放记录和搜索内容
-        </p>
-      </div>
-    </div>
+    <PageHeader title="播放历史" subtitle="查看所有播放记录和搜索内容" />
 
     <v-row>
       <v-col cols="12">
-        <v-card hover>
+        <v-card style="overflow: visible !important; touch-action: pan-y;">
           <v-card-title class="card-header">
             <span>最近播放</span>
             <v-icon>mdi-history</v-icon>
@@ -21,7 +13,7 @@
             <!-- 搜索栏 -->
             <div class="d-flex flex-column flex-sm-row align-sm-center justify-space-between ga-3 mb-4">
               <!-- 搜索框 -->
-              <div class="d-flex ga-2 flex-grow-1">
+              <div class="d-flex ga-3 flex-grow-1" style="max-width: 450px;">
                 <v-text-field
                   v-model="searchInput"
                   placeholder="搜索内容名称..."
@@ -32,11 +24,13 @@
                   density="comfortable"
                   variant="outlined"
                   hide-details
-                  style="max-width: 400px"
+                  rounded
+                  style="flex: 1;"
                 />
                 <v-btn
                   color="primary"
                   @click="handleSearch"
+                  rounded
                 >
                   搜索
                 </v-btn>
@@ -46,108 +40,135 @@
             <!-- 搜索结果提示 -->
             <div v-if="searchQuery" class="mb-4 text-caption text-medium-emphasis">
               搜索结果："{{ searchQuery }}"
-              <span v-if="!loading">({{ historyItems.length }} 条记录)</span>
+              <span v-if="!loading && searchStats">
+                ({{ searchStats.count }} 条记录，共 {{ formatDuration(searchStats.duration) }})
+              </span>
             </div>
 
-            <!-- 加载状态 -->
-            <div v-if="loading" class="d-flex justify-center align-center py-8">
-              <v-progress-circular indeterminate color="primary" />
-            </div>
+            <!-- 列表内容 -->
+            <div class="history-content">
+              <v-fade-transition mode="out-in">
+                <!-- 初始加载状态 -->
+                <div v-if="isInitialLoading" key="loading" class="d-flex justify-center py-12">
+                  <v-progress-circular indeterminate color="primary" />
+                </div>
 
-            <!-- 空状态 -->
-            <div v-else-if="historyItems.length === 0" class="text-center py-8">
-              <p class="text-medium-emphasis">
-                {{ searchQuery ? '未找到匹配的播放记录' : '暂无播放记录' }}
-              </p>
-            </div>
-
-            <!-- 搜索结果：列表展示 -->
-            <template v-else-if="isSearching">
-              <v-list>
-                <v-list-item
-                  v-for="(item, index) in itemsWithServerUrls"
-                  :key="`search-${item.item_id}-${item.time}-${index}`"
-                  class="mb-2 rounded"
+                <!-- 无限滚动容器 -->
+                <v-infinite-scroll
+                  v-else
+                  key="content"
+                  :items="historyItems"
+                  @load="loadMore"
+                  :disabled="!hasMore"
+                  side="end"
                 >
-                  <template #prepend>
-                    <!-- 小封面 -->
-                    <div class="poster-thumbnail mr-4">
-                      <v-img
-                        v-if="item.poster_url"
-                        :src="item.poster_url"
-                        cover
-                        width="48"
-                        height="64"
-                        class="rounded"
-                      >
-                        <template #placeholder>
-                          <div class="d-flex align-center justify-center fill-height">
-                            <v-icon icon="mdi-filmstrip" />
+                <!-- 搜索结果：标准卡片列表 -->
+                <template v-if="isSearching">
+                  <div class="search-results-list">
+                    <div
+                      v-for="(item, index) in searchItems"
+                      :key="item._searchKey"
+                      v-reveal
+                      class="d-flex align-center pa-3 mb-3 rounded-lg border bg-card-hover cursor-pointer transition-all"
+                      @click="goToContentDetail(String(item.item_id))"
+                    >
+                      <!-- 左侧海报 -->
+                      <div class="flex-shrink-0 mr-4">
+                        <LazyImage
+                          v-if="item.poster_url"
+                          :src="item.poster_url"
+                          width="56px"
+                          height="80px"
+                          :cover="true"
+                          class="rounded shadow-sm"
+                        />
+                        <div v-else class="d-flex align-center justify-center rounded bg-grey-lighten-3" style="width: 56px; height: 80px;">
+                          <v-icon icon="mdi-filmstrip" color="grey" />
+                        </div>
+                      </div>
+
+                      <!-- 右侧信息：严格 3 行布局 -->
+                      <div class="flex-grow-1 min-w-0 d-flex flex-column justify-center">
+                        <!-- 第一行：标题 -->
+                        <div class="text-subtitle-1 font-weight-bold text-primary text-truncate mb-1">
+                          {{ formatEpisodeName(item.item_name) }}
+                        </div>
+                        
+                        <!-- 第二行：用户 | 客户端 -->
+                        <div class="d-flex align-center text-caption text-medium-emphasis mb-1">
+                          <div style="width: 160px; flex-shrink: 0;" class="d-flex align-center">
+                            <v-icon size="14" class="mr-2" color="blue">mdi-account</v-icon>
+                            <span class="text-truncate">{{ item.username }}</span>
                           </div>
-                        </template>
-                      </v-img>
-                      <div v-else class="poster-placeholder d-flex align-center justify-center">
-                        <v-icon icon="mdi-filmstrip" />
-                      </div>
-                    </div>
-                  </template>
+                          <div class="ml-8 d-flex align-center text-truncate">
+                            <v-icon size="14" class="mr-2" color="purple">mdi-cellphone-link</v-icon>
+                            <span class="text-truncate">{{ item.client }} <span class="opacity-60 d-none d-sm-inline">({{ item.device }})</span></span>
+                          </div>
+                        </div>
 
-                  <!-- 内容信息 -->
-                  <div class="d-flex flex-column" style="width: 100%;">
-                    <!-- 标题 -->
-                    <div class="text-subtitle-2 font-weight-medium mb-2">
-                      {{ formatEpisodeName(item.item_name) }}
-                    </div>
-
-                    <!-- 详细信息 -->
-                    <div class="text-caption text-medium-emphasis">
-                      <div class="mb-1">
-                        <v-icon size="x-small" class="mr-1">mdi-account</v-icon>
-                        {{ item.username }}
-                      </div>
-                      <div class="mb-1">
-                        <v-icon size="x-small" class="mr-1">mdi-clock-outline</v-icon>
-                        {{ formatDateTime(item.time) }}
-                      </div>
-                      <div v-if="item.duration_minutes" class="mb-1">
-                        <v-icon size="x-small" class="mr-1">mdi-timer-outline</v-icon>
-                        {{ formatDuration(item.duration_minutes * 60) }}
+                        <!-- 第三行：时间 | 时长 -->
+                        <div class="d-flex align-center text-caption text-medium-emphasis">
+                          <div style="width: 160px; flex-shrink: 0; white-space: nowrap;" class="d-flex align-center">
+                            <v-icon size="14" class="mr-2" color="cyan">mdi-clock-outline</v-icon>
+                            <span>{{ formatDateTime(item.time) }}</span>
+                          </div>
+                          <div v-if="item.duration_minutes" class="ml-8 d-flex align-center text-truncate">
+                            <v-icon size="14" class="mr-2" color="success">mdi-timer-outline</v-icon>
+                            <span class="text-truncate">{{ formatDuration(item.duration_minutes * 60) }}</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
+                </template>
 
-                  <!-- 右侧信息 -->
-                  <template #append>
-                    <div class="text-right text-caption text-medium-emphasis">
-                      <div>{{ item.client }}</div>
-                      <div class="mt-1">{{ item.device }}</div>
-                    </div>
-                  </template>
-                </v-list-item>
-              </v-list>
-            </template>
+                <!-- 默认：海报网格展示 -->
+                <template v-else>
+                  <v-row dense>
+                    <v-col
+                      v-for="(item, index) in itemsWithServerUrls"
+                      :key="`poster-${item.item_id}-${item.time}-${index}`"
+                      cols="4"
+                      sm="3"
+                      md="2"
+                      lg="2"
+                    >
+                      <PosterCard
+                        v-reveal
+                        :title="formatEpisodeName(item.item_name)"
+                        :poster-url="item.poster_url"
+                        :subtitle="`${item.username} · ${formatDateTime(item.time)}`"
+                        @click="goToContentDetail(String(item.item_id))"
+                      />
+                    </v-col>
+                  </v-row>
+                </template>
 
-            <!-- 默认：海报网格展示 -->
-            <template v-else>
-              <v-row dense>
-                <v-col
-                  v-for="(item, index) in itemsWithServerUrls"
-                  :key="`poster-${item.item_id}-${item.time}-${index}`"
-                  cols="4"
-                  sm="3"
-                  md="2"
-                  lg="2"
-                  xl="2"
-                >
-                  <PosterCard
-                    :title="formatEpisodeName(item.item_name)"
-                    :poster-url="item.poster_url"
-                    :subtitle="`${item.username} · ${formatDateTime(item.time)}`"
-                    @click="goToContentDetail(String(item.item_id))"
-                  />
-                </v-col>
-              </v-row>
-            </template>
+                <!-- 加载更多状态 -->
+                <template #loading>
+                  <div class="d-flex justify-center py-4">
+                    <v-progress-circular indeterminate color="primary" size="24" />
+                  </div>
+                </template>
+
+                <!-- 没有更多数据 -->
+                <template #empty>
+                  <div class="text-center py-8 text-caption text-medium-emphasis">
+                    <v-divider class="mb-4" />
+                    已加载全部记录 (共 {{ historyItems.length }} 条)
+                  </div>
+                </template>
+
+                <!-- 错误状态 -->
+                <template #error="{ props }">
+                  <div class="text-center py-4">
+                    <p class="text-error mb-2">加载失败</p>
+                    <v-btn v-bind="props" variant="text" color="primary">重试</v-btn>
+                  </div>
+                </template>
+              </v-infinite-scroll>
+            </v-fade-transition>
+            </div>
           </v-card-text>
         </v-card>
       </v-col>
@@ -156,33 +177,42 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, computed } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { Card, PosterCard } from '@/components/ui'
+import { PosterCard, LazyImage, PageHeader, LoadingState } from '@/components/ui'
 import { useServerStore, useFilterStore } from '@/stores'
+import { useDataFetch } from '@/composables/useDataFetch'
+import { usePosterUrl } from '@/composables'
 import { statsApi } from '@/services'
-import { formatDateTime, formatDuration, getPosterUrl } from '@/utils'
+import { formatDateTime, formatDuration } from '@/utils'
 import type { RecentItem } from '@/types'
 
 const router = useRouter()
 const serverStore = useServerStore()
 const filterStore = useFilterStore()
+const { useItemsWithPosterUrls } = usePosterUrl()
 
-const loading = ref(false)
 const historyItems = ref<RecentItem[]>([])
 const searchInput = ref('')
 const searchQuery = ref('')
+const searchStats = ref<{ count: number; duration: number } | null>(null)
+const searchListKey = ref(0)
+
+const pageSize = 42
+const hasMore = ref(true)
+const isInitialLoading = ref(true)
 
 // 是否在搜索状态
 const isSearching = computed(() => !!searchQuery.value.trim())
 
 // 给历史记录项的海报URL添加server_id和尺寸参数
-const itemsWithServerUrls = computed(() => {
-  return historyItems.value.map(item => ({
+const itemsWithServerUrls = useItemsWithPosterUrls(historyItems, 'large')
+const searchItems = computed(() =>
+  itemsWithServerUrls.value.map((item, index) => ({
     ...item,
-    poster_url: getPosterUrl(item.poster_url, serverStore.currentServer?.id, 720, 480)
+    _searchKey: `${item.item_id ?? 'unknown'}-${item.time}-${index}`,
   }))
-})
+)
 
 // 格式化剧集名称（提取S01E02等信息）
 function formatEpisodeName(name: string): string {
@@ -205,134 +235,168 @@ function formatEpisodeName(name: string): string {
   return name
 }
 
-// 获取播放历史
-async function fetchHistory() {
-  if (!serverStore.currentServer) return
+// 记录正在加载的 offset，防止重复请求
+const loadingOffsets = new Set<number>()
 
-  loading.value = true
+// 加载更多数据
+async function loadMore({ done }: { done: (status: 'loading' | 'error' | 'empty' | 'ok') => void }) {
+  // 如果正在初始加载或已经没有更多，直接返回
+  if (isInitialLoading.value || !hasMore.value || !serverStore.currentServer) {
+    if (!hasMore.value) done('empty')
+    else done('ok')
+    return
+  }
+
+  const offset = historyItems.value.length
+  
+  // 防止重复加载同一个 offset
+  if (loadingOffsets.has(offset)) {
+    done('loading')
+    return
+  }
+
+  loadingOffsets.add(offset)
+
   try {
     // 构建查询参数
-    let params: any = {
+    const params: any = {
       server_id: serverStore.currentServer.id,
-      limit: isSearching.value ? 100 : 48,
+      limit: pageSize,
+      offset: offset,
     }
 
     if (isSearching.value) {
-      // 搜索时：移除时间限制，使用全库范围
       params.search = searchQuery.value.trim()
     } else {
-      // 默认：使用筛选器的时间范围
-      params = {
-        ...params,
-        ...filterStore.buildQueryParams,
-      }
+      Object.assign(params, filterStore.buildQueryParams)
     }
 
     const response = await statsApi.getRecent(params)
-    historyItems.value = response.data.recent || []
+    const newItems = response.data.recent || []
+    const total = response.data.total_count || 0
+
+    if (newItems.length > 0) {
+      // 避免重复添加
+      const existingKeys = new Set(historyItems.value.map(item => `${item.time}-${item.item_id}`))
+      const filteredNewItems = newItems.filter(item => !existingKeys.has(`${item.time}-${item.item_id}`))
+      
+      if (filteredNewItems.length > 0) {
+        historyItems.value.push(...filteredNewItems)
+      }
+
+      // 判断是否还有更多
+      hasMore.value = historyItems.value.length < total
+      done(hasMore.value ? 'ok' : 'empty')
+    } else {
+      hasMore.value = false
+      done('empty')
+    }
   } catch (error) {
-    console.error('Failed to fetch history:', error)
+    console.error('Failed to load more history:', error)
+    done('error')
   } finally {
-    loading.value = false
+    loadingOffsets.delete(offset)
   }
 }
+
+// 使用 useDataFetch 处理初始加载和刷新
+const { loading, refresh } = useDataFetch(
+  async () => {
+    isInitialLoading.value = true
+    historyItems.value = []
+    hasMore.value = true
+    loadingOffsets.clear()
+
+    try {
+      // 显式加载第 1 页
+      const params: any = {
+        server_id: serverStore.currentServer!.id,
+        limit: pageSize,
+        offset: 0,
+      }
+
+      if (isSearching.value) {
+        params.search = searchQuery.value.trim()
+      } else {
+        Object.assign(params, filterStore.buildQueryParams)
+      }
+
+      const response = await statsApi.getRecent(params)
+      const items = response.data.recent || []
+      const total = response.data.total_count || 0
+      
+      historyItems.value = items
+
+      // 搜索模式下保存统计信息
+      searchStats.value = isSearching.value
+        ? { count: total, duration: response.data.total_duration_seconds || 0 }
+        : null
+
+      // 判断是否还有更多
+      hasMore.value = historyItems.value.length < total
+    } finally {
+      isInitialLoading.value = false
+    }
+  },
+  {
+    immediate: true,
+    watchFilter: false,
+  }
+)
+
+// 刷新函数
+function handleRefresh() {
+  refresh()
+}
+
+// 自定义监听：只在非搜索状态下监听筛选器变化
+watch(
+  () => [serverStore.currentServer?.id, filterStore.buildQueryParams],
+  () => {
+    if (!isSearching.value) {
+      handleRefresh()
+    }
+  },
+  { deep: true }
+)
+
+// 监听搜索状态变化
+watch(searchQuery, () => {
+  handleRefresh()
+})
 
 // 执行搜索
 function handleSearch() {
   searchQuery.value = searchInput.value
-  fetchHistory()
 }
 
 // 清除搜索
 function clearSearch() {
   searchInput.value = ''
   searchQuery.value = ''
-  fetchHistory()
 }
 
 // 跳转到内容详情
 function goToContentDetail(itemId: string) {
   router.push(`/content/${itemId}`)
 }
-
-// 监听服务器和筛选器变化（只在非搜索状态下）
-watch(
-  () => [serverStore.currentServer?.id, filterStore.buildQueryParams],
-  () => {
-    if (!isSearching.value) {
-      fetchHistory()
-    }
-  },
-  { deep: true }
-)
-
-onMounted(() => {
-  fetchHistory()
-})
 </script>
 
 <style scoped>
-.page {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 24px;
-  animation: fadeIn 0.4s ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.page-header {
+.search-results-list {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
+  flex-direction: column;
 }
 
-.page-title {
-  font-size: 24px;
-  font-weight: 700;
-  margin: 0 0 4px 0;
-}
-
-.page-subtitle {
-  font-size: 14px;
-  opacity: 0.7;
-  margin: 0;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-weight: 600;
-}
-
-.poster-thumbnail {
-  width: 48px;
-  height: 64px;
-  flex-shrink: 0;
-}
-
-.poster-placeholder {
-  width: 48px;
-  height: 64px;
-  background-color: rgb(var(--v-theme-surface-variant));
-  border-radius: 4px;
+.history-scroll-container {
+  /* 让容器高度自适应，v-infinite-scroll 会自动寻找父级滚动容器 */
+  min-height: 200px;
 }
 
 /* 移动端适配 */
 @media (max-width: 768px) {
   .page {
     padding: 16px;
-  }
-
-  .page-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 16px;
   }
 }
 </style>

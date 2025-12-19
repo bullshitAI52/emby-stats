@@ -109,6 +109,8 @@ export interface RecentItem {
 
 export interface RecentData {
   recent: RecentItem[]
+  total_count?: number
+  total_duration_seconds?: number
 }
 
 export interface NowPlayingItem {

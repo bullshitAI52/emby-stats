@@ -5,6 +5,9 @@
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from typing import Literal
+from logger import get_logger
+
+logger = get_logger("scheduler")
 
 
 scheduler = AsyncIOScheduler()
@@ -23,18 +26,18 @@ async def send_report_for_server(period: ReportPeriod, server_id: str):
     config = report_config_service.load(server_id)
 
     if not config.telegram.enabled or not config.telegram.bot_token or not config.telegram.chat_id:
-        print(f"Scheduler [{server_id}][{period}]: Telegram not configured, skipping")
+        logger.info(f"Scheduler [{server_id}][{period}]: Telegram not configured, skipping")
         return
 
     # 获取服务器配置
     server_config = await server_service.get_server(server_id)
     if not server_config:
-        print(f"Scheduler [{server_id}][{period}]: Server not found, skipping")
+        logger.warning(f"Scheduler [{server_id}][{period}]: Server not found, skipping")
         return
 
     server_name = server_config.get("name", server_id)
     period_names = {"daily": "今日", "weekly": "本周", "monthly": "本月"}
-    print(f"Scheduler [{server_name}][{period}]: Starting {period_names[period]} report...")
+    logger.info(f"Scheduler [{server_name}][{period}]: Starting {period_names[period]} report...")
 
     # 获取配置的用户ID列表
     user_ids = None
@@ -60,18 +63,18 @@ async def send_report_for_server(period: ReportPeriod, server_id: str):
             config.telegram.proxy
         )
         if success:
-            print(f"Scheduler [{server_name}][{period}]: Report sent successfully")
+            logger.info(f"Scheduler [{server_name}][{period}]: Report sent successfully")
         else:
-            print(f"Scheduler [{server_name}][{period}]: Failed to send report")
+            logger.error(f"Scheduler [{server_name}][{period}]: Failed to send report")
     except Exception as e:
-        print(f"Scheduler [{server_name}][{period}]: Error: {e}")
+        logger.error(f"Scheduler [{server_name}][{period}]: Error: {e}")
 
 
 async def clean_expired_sessions():
     """清理过期会话"""
     from services.session import session_service
     cleaned = await session_service.clean_expired_sessions()
-    print(f"Scheduler: Cleaned {cleaned} expired sessions")
+    logger.info(f"Scheduler: Cleaned {cleaned} expired sessions")
 
 
 def _parse_cron(cron_str: str) -> dict:
@@ -106,9 +109,9 @@ def _add_job(job_id: str, func, cron_str: str, args: tuple = None):
             args=args,
             replace_existing=True
         )
-        print(f"Scheduler: Added job '{job_id}' with cron '{cron_str}'")
+        logger.info(f"Scheduler: Added job '{job_id}' with cron '{cron_str}'")
     except Exception as e:
-        print(f"Scheduler: Failed to add job '{job_id}': {e}")
+        logger.error(f"Scheduler: Failed to add job '{job_id}': {e}")
 
 
 def _remove_all_report_jobs():
@@ -121,7 +124,7 @@ def _remove_all_report_jobs():
     for job_id in jobs_to_remove:
         try:
             scheduler.remove_job(job_id)
-            print(f"Scheduler: Removed job '{job_id}'")
+            logger.info(f"Scheduler: Removed job '{job_id}'")
         except Exception:
             pass
 
@@ -156,7 +159,7 @@ def setup_scheduler():
 
     if not scheduler.running:
         scheduler.start()
-        print("Scheduler: Started")
+        logger.info("Scheduler: Started")
 
 
 def reload_scheduler():
@@ -187,11 +190,11 @@ def reload_scheduler():
             job_id = _get_job_id(server_id, "monthly")
             _add_job(job_id, send_report_for_server, schedule.monthly.cron, ("monthly", server_id))
 
-    print("Scheduler: Reloaded")
+    logger.info("Scheduler: Reloaded")
 
 
 def shutdown_scheduler():
     """关闭调度器"""
     if scheduler.running:
         scheduler.shutdown()
-        print("Scheduler: Shutdown complete")
+        logger.info("Scheduler: Shutdown complete")

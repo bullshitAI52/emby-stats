@@ -4,6 +4,9 @@ Telegram 推送服务
 """
 import httpx
 from config import settings
+from logger import get_logger
+
+logger = get_logger("services.telegram")
 
 
 class TelegramService:
@@ -19,7 +22,7 @@ class TelegramService:
     async def send_message(self, text: str, parse_mode: str = "HTML") -> bool:
         """发送文本消息"""
         if not self.is_configured():
-            print("Telegram not configured")
+            logger.warning("Telegram not configured")
             return False
 
         try:
@@ -36,16 +39,16 @@ class TelegramService:
                 if resp.status_code == 200:
                     return True
                 else:
-                    print(f"Telegram send message failed: {resp.status_code} - {resp.text}")
+                    logger.error(f"Telegram send message failed: {resp.status_code} - {resp.text}")
                     return False
         except Exception as e:
-            print(f"Error sending Telegram message: {e}")
+            logger.error(f"Error sending Telegram message: {e}")
             return False
 
     async def send_photo(self, photo: bytes, caption: str = "", parse_mode: str = "HTML") -> bool:
         """发送图片"""
         if not self.is_configured():
-            print("Telegram not configured")
+            logger.warning("Telegram not configured")
             return False
 
         try:
@@ -67,16 +70,16 @@ class TelegramService:
                 if resp.status_code == 200:
                     return True
                 else:
-                    print(f"Telegram send photo failed: {resp.status_code} - {resp.text}")
+                    logger.error(f"Telegram send photo failed: {resp.status_code} - {resp.text}")
                     return False
         except Exception as e:
-            print(f"Error sending Telegram photo: {e}")
+            logger.error(f"Error sending Telegram photo: {e}")
             return False
 
     async def send_media_group(self, photos: list[bytes], caption: str = "") -> bool:
         """发送多张图片（媒体组）"""
         if not self.is_configured():
-            print("Telegram not configured")
+            logger.warning("Telegram not configured")
             return False
 
         if not photos:
@@ -112,10 +115,10 @@ class TelegramService:
                 if resp.status_code == 200:
                     return True
                 else:
-                    print(f"Telegram send media group failed: {resp.status_code} - {resp.text}")
+                    logger.error(f"Telegram send media group failed: {resp.status_code} - {resp.text}")
                     return False
         except Exception as e:
-            print(f"Error sending Telegram media group: {e}")
+            logger.error(f"Error sending Telegram media group: {e}")
             return False
 
     # ==================== 使用自定义配置的方法 ====================
@@ -132,10 +135,10 @@ class TelegramService:
                 if resp.status_code == 200:
                     return True
                 else:
-                    print(f"Telegram send message failed: {resp.status_code} - {resp.text}")
+                    logger.error(f"Telegram send message failed: {resp.status_code} - {resp.text}")
                     return False
         except Exception as e:
-            print(f"Error sending Telegram message: {e}")
+            logger.error(f"Error sending Telegram message: {e}")
             return False
 
     async def send_photo_with_config(self, photo: bytes, caption: str, bot_token: str, chat_id: str, proxy: str = "", parse_mode: str = "HTML") -> bool:
@@ -157,10 +160,10 @@ class TelegramService:
                 if resp.status_code == 200:
                     return True
                 else:
-                    print(f"Telegram send photo failed: {resp.status_code} - {resp.text}")
+                    logger.error(f"Telegram send photo failed: {resp.status_code} - {resp.text}")
                     return False
         except Exception as e:
-            print(f"Error sending Telegram photo: {e}")
+            logger.error(f"Error sending Telegram photo: {e}")
             return False
 
 
