@@ -22,7 +22,7 @@ WORKDIR /app
 
 # 安装系统依赖和中文字体
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    fonts-noto-cjk \
+    fonts-noto-cjk tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 # 安装Python依赖

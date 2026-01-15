@@ -22,7 +22,19 @@ class Settings:
     MIN_PLAY_DURATION: int = int(os.getenv("MIN_PLAY_DURATION", "0"))
 
     # 时区偏移（小时），用于 SQLite 查询时间转换，上海时区为 +8
-    TZ_OFFSET: int = int(os.getenv("TZ_OFFSET", "8"))
+    # 时区偏移（小时），用于 SQLite 查询时间转换
+    # 优先使用环境变量 TZ_OFFSET
+    # 如果未设置，则尝试从系统时区自动计算
+    # 如果都失败，默认 +8 (北京时间)
+    _system_offset = 8
+    try:
+        import datetime
+        # 获取当前系统时区的偏移小时数
+        _system_offset = int(datetime.datetime.now().astimezone().utcoffset().total_seconds() / 3600)
+    except Exception:
+        pass
+    
+    TZ_OFFSET: int = int(os.getenv("TZ_OFFSET", str(_system_offset)))
 
     # 缓存配置
     ITEM_CACHE_MAX_SIZE: int = 500

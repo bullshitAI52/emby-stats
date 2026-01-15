@@ -195,7 +195,7 @@ async def startup_event():
     """应用启动时执行的初始化操作"""
     # 初始化会话数据库
     await session_service.init_db()
-    logger.info("✓ 会话数据库初始化完成")
+    logger.info(f"✓ 会话数据库初始化完成 (TZ={os.getenv('TZ', 'UTC')}, Offset={settings.TZ_OFFSET})")
 
     # 初始化服务器配置数据库
     await server_service.init_servers_table()
