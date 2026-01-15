@@ -8,13 +8,14 @@
 
 ## 修复内容
 
-### 1. 后端修复 - 活跃时段统计查询
-
-**文件:** `backend/routers/stats/trend.py`
-
+### 1. 后端修复 - 时区自动检测
+ 
+**文件:** `backend/config.py`, `Dockerfile`
+ 
 **修改:**
-- 添加 `CAST` 确保小时和星期值正确转换为整数
-- 添加 `ORDER BY` 确保结果排序一致
+- 在 `Dockerfile` 中安装 `tzdata` 依赖，确保系统时区正确
+- 在 `config.py` 中增加自动检测逻辑，优先读取系统时区偏移
+- 即使未手动设置 `TZ_OFFSET`，也能自动识别 `Asia/Shanghai` 为 +8
 
 ```python
 # 修改前
