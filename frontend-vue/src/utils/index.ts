@@ -14,12 +14,26 @@ export function formatDuration(seconds: number): string {
 }
 
 /**
+ * Parse a datetime string from backend as local time
+ * Backend returns strings like "2026-01-15 11:25:56" which are already in local timezone
+ * We need to parse them as local time, not UTC
+ */
+function parseLocalDateTime(date: string | Date): Date {
+  if (date instanceof Date) return date
+  // Replace space with 'T' to make it ISO-like without timezone suffix
+  // This makes the browser parse it as local time
+  const isoLike = date.replace(' ', 'T')
+  return new Date(isoLike)
+}
+
+/**
  * 格式化日期
  * @param date 日期字符串或 Date 对象
  * @returns 格式化的日期字符串
  */
 export function formatDate(date: string | Date): string {
-  return new Date(date).toLocaleDateString('zh-CN')
+  const d = parseLocalDateTime(date)
+  return d.toLocaleDateString('zh-CN')
 }
 
 /**
@@ -28,7 +42,8 @@ export function formatDate(date: string | Date): string {
  * @returns 格式化的日期时间字符串
  */
 export function formatDateTime(date: string | Date): string {
-  return new Date(date).toLocaleString('zh-CN')
+  const d = parseLocalDateTime(date)
+  return d.toLocaleString('zh-CN')
 }
 
 /**
