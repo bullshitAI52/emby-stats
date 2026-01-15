@@ -103,12 +103,13 @@ async def get_hourly_stats(
     async with get_playback_db(server_config) as db:
         async with db.execute(f"""
             SELECT
-                strftime('%w', {datetime_col}) as day_of_week,
-                strftime('%H', {datetime_col}) as hour,
+                CAST(strftime('%w', {datetime_col}) AS INTEGER) as day_of_week,
+                CAST(strftime('%H', {datetime_col}) AS INTEGER) as hour,
                 {count_expr} as play_count
             FROM PlaybackActivity
             WHERE {where_clause}
             GROUP BY day_of_week, hour
+            ORDER BY day_of_week, hour
         """, params) as cursor:
             data = []
             async for row in cursor:
